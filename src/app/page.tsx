@@ -478,8 +478,12 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  // Handle mobile input
+  // Handle mobile input (only on touch devices)
   const handleMobileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only process on touch devices
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) return;
+
     if (gameOver || showModal || showHelp) return;
 
     const value = e.target.value;
@@ -510,6 +514,10 @@ export default function Home() {
   };
 
   const handleMobileKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Only process on touch devices
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) return;
+
     if (gameOver) return;
 
     if (e.key === 'Enter') {
@@ -523,8 +531,12 @@ export default function Home() {
     }
   };
 
-  // Focus mobile input when clicking on game area
+  // Focus mobile input when clicking on game area (mobile/touch devices only)
   useEffect(() => {
+    // Only enable mobile input on touch devices
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) return;
+
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       // Only focus if clicking on the game area (tiles, main) and not on buttons
@@ -759,58 +771,139 @@ export default function Home() {
 
   return (
     <>
-      {/* Structured Data for SEO - English */}
+      {/* Structured Data for SEO */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
-            "@type": "WebApplication",
-            "name": "Anagramle",
-            "alternateName": "Anagramle - Juego de Palabras",
-            "description": "A word puzzle game combining Wordle gameplay with Scrabble scoring. Guess words in 6 tries and maximize your score with letter and word multipliers.",
-            "url": "https://anagramle.vercel.app",
-            "applicationCategory": "Game",
-            "genre": ["Word Game", "Puzzle Game", "Educational Game", "Juego de Palabras", "Juego Educativo"],
-            "operatingSystem": "Any",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD",
-              "availability": "https://schema.org/InStock"
-            },
-            "aggregateRating": {
-              "@type": "AggregateRating",
-              "ratingValue": "4.8",
-              "ratingCount": "1247",
-              "bestRating": "5",
-              "worstRating": "1"
-            },
-            "inLanguage": ["en-US", "en-GB", "es-ES", "es-MX"],
-            "availableLanguage": [
+            "@graph": [
               {
-                "@type": "Language",
-                "name": "English",
-                "alternateName": "en"
+                "@type": "WebApplication",
+                "@id": "https://anagramle.vercel.app/#webapp",
+                "name": "Anagramle",
+                "alternateName": "Anagramle - Juego de Palabras",
+                "description": "A word puzzle game combining Wordle gameplay with Scrabble scoring. Guess words in 6 tries and maximize your score with letter and word multipliers.",
+                "url": "https://anagramle.vercel.app",
+                "applicationCategory": "Game",
+                "genre": ["Word Game", "Puzzle Game", "Educational Game"],
+                "operatingSystem": "Any",
+                "browserRequirements": "Requires JavaScript. Requires HTML5.",
+                "softwareVersion": "1.0",
+                "inLanguage": ["en-US", "en-GB", "es-ES", "es-MX"],
+                "availableLanguage": [
+                  {
+                    "@type": "Language",
+                    "name": "English",
+                    "alternateName": "en"
+                  },
+                  {
+                    "@type": "Language",
+                    "name": "Español",
+                    "alternateName": "es"
+                  }
+                ],
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD",
+                  "availability": "https://schema.org/InStock"
+                },
+                "featureList": [
+                  "Wordle-style word guessing gameplay",
+                  "Scrabble point scoring system",
+                  "Letter and word multipliers",
+                  "Daily word challenges",
+                  "Multi-language support (English US, English World, Spanish)",
+                  "Variable word lengths (2-15 letters)",
+                  "Real dictionary validation (TWL06, SOWPODS, FISE)"
+                ]
               },
               {
-                "@type": "Language",
-                "name": "Español",
-                "alternateName": "es"
+                "@type": "VideoGame",
+                "@id": "https://anagramle.vercel.app/#game",
+                "name": "Anagramle",
+                "alternateName": ["Anagramle - Wordle meets Scrabble", "Anagramle - Juego de Palabras"],
+                "description": "Anagramle is a free online word puzzle game that combines the best of Wordle and Scrabble. Guess the word in 6 tries using color-coded feedback, while scoring points with Scrabble letter values and board multipliers.",
+                "url": "https://anagramle.vercel.app",
+                "image": "https://anagramle.vercel.app/og-image.svg",
+                "playMode": "SinglePlayer",
+                "gamePlatform": ["https://schema.org/WebBrowser", "https://schema.org/MobileWebBrowser"],
+                "genre": ["Word Game", "Puzzle Game", "Educational Game", "Brain Game"],
+                "numberOfPlayers": {
+                  "@type": "QuantitativeValue",
+                  "value": 1
+                },
+                "inLanguage": ["en", "es"],
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "Anagramle"
+                },
+                "creator": {
+                  "@type": "Organization",
+                  "name": "Anagramle"
+                },
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD",
+                  "availability": "https://schema.org/InStock",
+                  "category": "Free to Play"
+                },
+                "aggregateRating": {
+                  "@type": "AggregateRating",
+                  "ratingValue": "4.8",
+                  "ratingCount": "1247",
+                  "bestRating": "5",
+                  "worstRating": "1"
+                },
+                "gameItem": [
+                  {
+                    "@type": "Thing",
+                    "name": "Word Letters",
+                    "description": "Letters with Scrabble point values"
+                  },
+                  {
+                    "@type": "Thing",
+                    "name": "Multipliers",
+                    "description": "Double/Triple Letter and Word Score multipliers"
+                  }
+                ],
+                "keywords": "wordle, scrabble, word game, puzzle game, free word game, online word game, wordle alternative, scrabble online, brain game, vocabulary game, NASPA Word List, TWL06, Collins Scrabble Words, SOWPODS, CSW, juego de palabras, wordle español, scrabble español, DRAE, RAE, FISE"
+              },
+              {
+                "@type": "WebPage",
+                "@id": "https://anagramle.vercel.app/#webpage",
+                "url": "https://anagramle.vercel.app",
+                "name": "Anagramle - Wordle meets Scrabble | Free Word Puzzle Game",
+                "description": "Play Anagramle, the ultimate word puzzle game combining Wordle's gameplay with Scrabble scoring. Guess words, earn points with multipliers, and master the daily word challenge. Free to play!",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "@id": "https://anagramle.vercel.app/#website"
+                },
+                "about": {
+                  "@id": "https://anagramle.vercel.app/#game"
+                },
+                "primaryImageOfPage": {
+                  "@type": "ImageObject",
+                  "url": "https://anagramle.vercel.app/og-image.svg",
+                  "width": 1200,
+                  "height": 630
+                }
+              },
+              {
+                "@type": "WebSite",
+                "@id": "https://anagramle.vercel.app/#website",
+                "url": "https://anagramle.vercel.app",
+                "name": "Anagramle",
+                "description": "Free online word puzzle game combining Wordle and Scrabble",
+                "inLanguage": ["en", "es"],
+                "potentialAction": {
+                  "@type": "PlayAction",
+                  "target": "https://anagramle.vercel.app"
+                }
               }
-            ],
-            "browserRequirements": "Requires JavaScript. Requires HTML5.",
-            "softwareVersion": "1.0",
-            "releaseNotes": "Combining the best of Wordle and Scrabble. Combinando lo mejor de Wordle y Scrabble.",
-            "featureList": [
-              "Wordle-style word guessing / Adivinanza de palabras estilo Wordle",
-              "Scrabble point scoring / Puntuación de Scrabble",
-              "Letter and word multipliers / Multiplicadores de letras y palabras",
-              "Daily word challenges / Desafíos diarios de palabras",
-              "Multi-language support (English, Spanish) / Soporte multiidioma (Inglés, Español)",
-              "Variable word lengths (2-15 letters) / Longitud variable de palabras (2-15 letras)"
-            ],
-            "keywords": "wordle, scrabble, word game, juego de palabras, wordle español, scrabble español, free word game, juego gratis, NASPA Word List, TWL06, Collins Scrabble Words, SOWPODS, CSW, scrabble dictionary, DRAE, RAE, diccionario español, FISE"
+            ]
           })
         }}
       />
