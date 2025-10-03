@@ -81,6 +81,11 @@ const TRANSLATIONS = {
     scoringLabel: 'Scoring:',
     scoringInfo: 'Words are scored like Scrabble with multipliers. Words longer than 7 letters show hints (dimmed letters).',
     letterValues: 'Letter Values',
+    boardMultipliers: 'Board Multipliers:',
+    tripleWordScore: 'Triple Word Score',
+    doubleWordScore: 'Double Word Score',
+    tripleLetterScore: 'Triple Letter Score',
+    doubleLetterScore: 'Double Letter Score',
     wordNotInDictionary: 'Word not in dictionary',
     validationFailed: 'Validation failed',
     multipliers: {
@@ -115,6 +120,11 @@ const TRANSLATIONS = {
     scoringLabel: 'Puntuación:',
     scoringInfo: 'Las palabras se puntúan como Scrabble con multiplicadores. Palabras de más de 7 letras muestran pistas (letras atenuadas).',
     letterValues: 'Valores de Letras',
+    boardMultipliers: 'Multiplicadores del Tablero:',
+    tripleWordScore: 'Triple Palabra',
+    doubleWordScore: 'Doble Palabra',
+    tripleLetterScore: 'Triple Letra',
+    doubleLetterScore: 'Doble Letra',
     wordNotInDictionary: 'La palabra no está en el diccionario',
     validationFailed: 'Validación fallida',
     multipliers: {
@@ -1154,6 +1164,34 @@ export default function Home() {
                 <p className="text-white/90">
                   <strong>{t.scoringLabel}</strong> {t.scoringInfo}
                 </p>
+              </div>
+
+              <h3 className="text-2xl font-bold mb-4">{t.boardMultipliers}</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 bg-[#d64545] border-2 border-[#d64545] rounded flex items-center justify-center text-white font-bold text-sm">
+                    {t.multipliers.TWS}
+                  </div>
+                  <span className="text-white/80 text-sm text-center">{t.tripleWordScore}</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 bg-[#e07575] border-2 border-[#e07575] rounded flex items-center justify-center text-white font-bold text-sm">
+                    {t.multipliers.DWS}
+                  </div>
+                  <span className="text-white/80 text-sm text-center">{t.doubleWordScore}</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 bg-[#3d8ac7] border-2 border-[#3d8ac7] rounded flex items-center justify-center text-white font-bold text-sm">
+                    {t.multipliers.TLS}
+                  </div>
+                  <span className="text-white/80 text-sm text-center">{t.tripleLetterScore}</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 bg-[#5fa3d4] border-2 border-[#5fa3d4] rounded flex items-center justify-center text-white font-bold text-sm">
+                    {t.multipliers.DLS}
+                  </div>
+                  <span className="text-white/80 text-sm text-center">{t.doubleLetterScore}</span>
+                </div>
               </div>
 
               <h3 className="text-2xl font-bold mb-4">{t.letterValues}</h3>
