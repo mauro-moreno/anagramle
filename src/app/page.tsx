@@ -243,8 +243,9 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState('');
   const [shakeRow, setShakeRow] = useState<number | null>(null);
   const [languageInitialized, setLanguageInitialized] = useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const currentTileRef = useRef<HTMLDivElement>(null);
-  const languageSelectRef = useRef<HTMLSelectElement>(null);
+  const languageDropdownRef = useRef<HTMLDivElement>(null);
 
   const t = TRANSLATIONS[language === 'en-world' ? 'en' : language];
 
@@ -382,9 +383,9 @@ export default function Home() {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (gameOver) return;
 
-      // Blur the language select when typing to prevent it from capturing events
-      if (languageSelectRef.current && languageSelectRef.current === document.activeElement) {
-        languageSelectRef.current.blur();
+      // Close the language dropdown when typing
+      if (showLanguageDropdown) {
+        setShowLanguageDropdown(false);
       }
 
       if (e.key === 'Enter') {
@@ -414,7 +415,7 @@ export default function Home() {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentGuess, gameOver, currentRow, targetWord, wordLength, language]);
+  }, [currentGuess, gameOver, currentRow, targetWord, wordLength, language, showLanguageDropdown]);
 
   useEffect(() => {
     if (currentTileRef.current) {
@@ -445,6 +446,20 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleModalKeys);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showHelp, showModal]);
+
+  // Close language dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (languageDropdownRef.current && !languageDropdownRef.current.contains(e.target as Node)) {
+        setShowLanguageDropdown(false);
+      }
+    };
+
+    if (showLanguageDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showLanguageDropdown]);
 
   useEffect(() => {
     // Reset game with new word when language changes
@@ -726,16 +741,37 @@ export default function Home() {
       />
       <div className="flex flex-col h-screen w-full">
         <header className="w-full text-center border-b border-[#3a3a3c] py-3 px-2 relative flex-shrink-0">
-        <select
-          ref={languageSelectRef}
-          value={language}
-          onChange={(e) => setLanguage(e.target.value as 'en' | 'en-world' | 'es')}
-          className="absolute left-4 top-1/2 -translate-y-1/2 px-2 py-1 rounded border-2 border-white/60 bg-[#2a2a2a] text-white/80 font-bold text-xs hover:bg-white/10 transition-colors cursor-pointer"
-        >
-          <option value="en">EN-US</option>
-          <option value="en-world">EN-World</option>
-          <option value="es">ES</option>
-        </select>
+        <div ref={languageDropdownRef} className="absolute left-4 top-1/2 -translate-y-1/2">
+          <button
+            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+            className="px-2 py-1 rounded border-2 border-white/60 bg-[#2a2a2a] text-white font-bold text-xs hover:bg-white/10 transition-colors cursor-pointer min-w-[90px] text-left flex items-center justify-between"
+          >
+            <span>{language === 'en' ? 'EN-US' : language === 'en-world' ? 'EN-World' : 'ES'}</span>
+            <span className="ml-1 text-[10px]">{showLanguageDropdown ? '▲' : '▼'}</span>
+          </button>
+          {showLanguageDropdown && (
+            <div className="absolute top-full left-0 mt-1 w-full bg-[#2a2a2a] border-2 border-white/60 rounded overflow-hidden z-50">
+              <button
+                onClick={() => { setLanguage('en'); setShowLanguageDropdown(false); }}
+                className={`w-full px-2 py-1.5 text-xs font-bold text-left hover:bg-white/10 transition-colors ${language === 'en' ? 'bg-white/20 text-white' : 'text-white/80'}`}
+              >
+                EN-US
+              </button>
+              <button
+                onClick={() => { setLanguage('en-world'); setShowLanguageDropdown(false); }}
+                className={`w-full px-2 py-1.5 text-xs font-bold text-left hover:bg-white/10 transition-colors ${language === 'en-world' ? 'bg-white/20 text-white' : 'text-white/80'}`}
+              >
+                EN-World
+              </button>
+              <button
+                onClick={() => { setLanguage('es'); setShowLanguageDropdown(false); }}
+                className={`w-full px-2 py-1.5 text-xs font-bold text-left hover:bg-white/10 transition-colors ${language === 'es' ? 'bg-white/20 text-white' : 'text-white/80'}`}
+              >
+                ES
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex items-center justify-center gap-3">
           <Image src="/logo.svg" alt="Anagramle" width={48} height={48} className="w-10 h-10 sm:w-12 sm:h-12" />
           <h1 className="text-xl sm:text-2xl font-bold tracking-wide">{t.title}</h1>

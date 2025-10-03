@@ -46,3 +46,31 @@ body {
 .animate-shake {
   animation: shake 0.5s ease-in-out;
 }
+
+/* Custom Scrollbar Styles */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #565758 #2a2a2a;
+}
+
+/* Chrome, Edge, Safari */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #2a2a2a;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #565758;
+  border-radius: 4px;
+  border: 2px solid #2a2a2a;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #6aaa64;
+}
