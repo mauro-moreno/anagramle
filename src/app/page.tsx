@@ -679,7 +679,7 @@ export default function Home() {
             "name": "Anagramle",
             "alternateName": "Anagramle - Juego de Palabras",
             "description": "A word puzzle game combining Wordle gameplay with Scrabble scoring. Guess words in 6 tries and maximize your score with letter and word multipliers.",
-            "url": "https://anagramle.com",
+            "url": "https://anagramle.vercel.app",
             "applicationCategory": "Game",
             "genre": ["Word Game", "Puzzle Game", "Educational Game", "Juego de Palabras", "Juego Educativo"],
             "operatingSystem": "Any",

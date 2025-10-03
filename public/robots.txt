@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemaps
-Sitemap: https://anagramle.com/sitemap.xml
+Sitemap: https://anagramle.vercel.app/sitemap.xml
