@@ -513,23 +513,15 @@ export default function Home() {
     }
   };
 
-  // Keep mobile input focused on mobile devices
+  // Focus mobile input only when clicking on game area
   useEffect(() => {
-    const focusMobileInput = () => {
-      if (mobileInputRef.current && !gameOver && !showModal && !showHelp && !showLanguageDropdown) {
-        mobileInputRef.current.focus();
-      }
-    };
-
-    // Focus on mount and when game state changes
-    focusMobileInput();
-
-    // Refocus when clicking on the game area (but not on buttons)
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      // Don't refocus if clicking on a button or interactive element
+      // Only focus if clicking on the game area (tiles, main) and not on buttons
       if (!target.closest('button') && !target.closest('input') && !target.closest('select')) {
-        focusMobileInput();
+        if (mobileInputRef.current && !gameOver && !showModal && !showHelp && !showLanguageDropdown) {
+          mobileInputRef.current.focus();
+        }
       }
     };
     document.addEventListener('click', handleClick);
@@ -819,7 +811,16 @@ export default function Home() {
           spellCheck="false"
           onChange={handleMobileInput}
           onKeyDown={handleMobileKeyDown}
-          className="absolute opacity-0 pointer-events-none"
+          onBlur={(e) => {
+            // Prevent immediate refocus to avoid keyboard issues
+            e.target.readOnly = true;
+            setTimeout(() => {
+              if (mobileInputRef.current) {
+                mobileInputRef.current.readOnly = false;
+              }
+            }, 100);
+          }}
+          className="absolute top-0 left-0 w-px h-px opacity-0 pointer-events-none"
           aria-hidden="true"
           tabIndex={-1}
         />
@@ -867,7 +868,7 @@ export default function Home() {
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center justify-center py-4 px-2">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center py-4 px-2">
         <div className="flex gap-8 items-center mb-4">
           <div className="flex items-baseline gap-2">
             <span className="text-sm text-white/60 font-semibold">{t.target}</span>
