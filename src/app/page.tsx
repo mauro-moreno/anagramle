@@ -246,6 +246,7 @@ export default function Home() {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const currentTileRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
 
   const t = TRANSLATIONS[language === 'en-world' ? 'en' : language];
 
@@ -468,6 +469,73 @@ export default function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
+
+  // Handle mobile input
+  const handleMobileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (gameOver || showModal || showHelp) return;
+
+    const value = e.target.value;
+    if (!value) return;
+
+    const lastChar = value.slice(-1).toUpperCase();
+
+    // Clear the input to allow continuous typing
+    e.target.value = '';
+
+    if (/^[A-ZÑ]$/.test(lastChar)) {
+      const newGuess = currentGuess + lastChar;
+
+      // For Spanish, auto-combine digraphs
+      if (language === 'es') {
+        const tokens = tokenizeSpanishWord(newGuess);
+        if (tokens.length <= wordLength) {
+          setCurrentGuess(newGuess);
+          setCurrentGuessTokens(tokens);
+        }
+      } else {
+        if (newGuess.length <= wordLength) {
+          setCurrentGuess(newGuess);
+          setCurrentGuessTokens(newGuess.split(''));
+        }
+      }
+    }
+  };
+
+  const handleMobileKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (gameOver) return;
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit();
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      handleBackspace();
+    }
+  };
+
+  // Keep mobile input focused on mobile devices
+  useEffect(() => {
+    const focusMobileInput = () => {
+      if (mobileInputRef.current && !gameOver && !showModal && !showHelp && !showLanguageDropdown) {
+        mobileInputRef.current.focus();
+      }
+    };
+
+    // Focus on mount and when game state changes
+    focusMobileInput();
+
+    // Refocus when clicking on the game area (but not on buttons)
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't refocus if clicking on a button or interactive element
+      if (!target.closest('button') && !target.closest('input') && !target.closest('select')) {
+        focusMobileInput();
+      }
+    };
+    document.addEventListener('click', handleClick);
+
+    return () => document.removeEventListener('click', handleClick);
+  }, [gameOver, showModal, showHelp, showLanguageDropdown]);
 
   const getScrabblePoints = () => {
     return language === 'es' ? SCRABBLE_POINTS_ES : SCRABBLE_POINTS_EN;
@@ -740,6 +808,21 @@ export default function Home() {
         }}
       />
       <div className="flex flex-col h-screen w-full">
+        {/* Hidden input for mobile keyboard */}
+        <input
+          ref={mobileInputRef}
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="characters"
+          spellCheck="false"
+          onChange={handleMobileInput}
+          onKeyDown={handleMobileKeyDown}
+          className="absolute opacity-0 pointer-events-none"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
         <header className="w-full text-center border-b border-[#3a3a3c] py-3 px-2 relative flex-shrink-0">
         <div ref={languageDropdownRef} className="absolute left-4 top-1/2 -translate-y-1/2">
           <button
