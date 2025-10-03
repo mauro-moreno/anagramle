@@ -68,6 +68,9 @@ const TRANSLATIONS = {
     yourScore: 'Your',
     targetScore: 'Target',
     score: 'Score:',
+    baseScore: 'Base Score:',
+    attemptBonus: 'Attempt Bonus:',
+    finalScore: 'Final Score:',
     playAgain: 'Play Again',
     howToPlay: 'How to Play',
     instructions: 'Guess the word in 6 tries. Each guess must be a valid word.',
@@ -99,6 +102,9 @@ const TRANSLATIONS = {
     yourScore: 'Tu',
     targetScore: 'Objetivo',
     score: 'Puntuación:',
+    baseScore: 'Puntuación Base:',
+    attemptBonus: 'Bono por Intento:',
+    finalScore: 'Puntuación Final:',
     playAgain: 'Jugar de nuevo',
     howToPlay: 'Cómo Jugar',
     instructions: 'Adivina la palabra en 6 intentos. Cada intento debe ser una palabra válida.',
@@ -246,6 +252,8 @@ export default function Home() {
   const [shakeRow, setShakeRow] = useState<number | null>(null);
   const [languageInitialized, setLanguageInitialized] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [finalScore, setFinalScore] = useState(0);
+  const [attemptMultiplier, setAttemptMultiplier] = useState(1);
   const currentTileRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
@@ -295,10 +303,12 @@ export default function Home() {
         won,
         guessScores,
         language,
+        finalScore,
+        attemptMultiplier,
       };
       localStorage.setItem('anagramle-game-state', JSON.stringify(gameState));
     }
-  }, [targetWord, targetTokens, wordLength, boardRow, startCol, hintPositions, guesses, guessTokens, currentGuess, currentGuessTokens, currentRow, gameOver, won, guessScores, language]);
+  }, [targetWord, targetTokens, wordLength, boardRow, startCol, hintPositions, guesses, guessTokens, currentGuess, currentGuessTokens, currentRow, gameOver, won, guessScores, language, finalScore, attemptMultiplier]);
 
   // Load game state or fetch new word (only after language is initialized)
   useEffect(() => {
@@ -327,6 +337,8 @@ export default function Home() {
             setGameOver(state.gameOver);
             setWon(state.won);
             setGuessScores(state.guessScores);
+            setFinalScore(state.finalScore || 0);
+            setAttemptMultiplier(state.attemptMultiplier || 1);
             // Show modal if game was over
             if (state.gameOver) {
               setShowModal(true);
@@ -641,6 +653,14 @@ export default function Home() {
 
     if (currentGuess === targetWord) {
       setAnimatingRow(currentRow);
+      // Calculate attempt multiplier: 3x for first try, 2.5x for second, etc.
+      const attemptNumber = currentRow + 1;
+      const multiplier = 3.5 - (attemptNumber * 0.5);
+      const finalScoreValue = Math.round(score * multiplier);
+
+      setAttemptMultiplier(multiplier);
+      setFinalScore(finalScoreValue);
+
       // First move to next row to trigger the green state
       setCurrentRow(currentRow + 1);
       setTimeout(() => {
@@ -761,6 +781,8 @@ export default function Home() {
       setGuessScores(Array(MAX_ATTEMPTS).fill(0));
       setAnimatingRow(null);
       setShowModal(false);
+      setFinalScore(0);
+      setAttemptMultiplier(1);
     } catch (error) {
       console.error('Failed to fetch word:', error);
     }
@@ -1053,11 +1075,25 @@ export default function Home() {
               <p className="text-3xl font-bold text-[#6aaa64] mb-4">
                 {targetWord}
               </p>
-              <p className="text-lg mb-6">
-                {won ? t.yourScore : t.targetScore} {t.score} <span className="font-bold text-[#6aaa64]">
-                  {won ? guessScores.slice(0, currentRow + 1).reverse().find(s => s > 0) || targetWordScore : targetWordScore}
-                </span>
-              </p>
+              {won ? (
+                <div className="mb-6 space-y-2">
+                  <p className="text-base text-white/80">
+                    {t.baseScore} <span className="font-bold text-white">{guessScores.slice(0, currentRow + 1).reverse().find(s => s > 0) || 0}</span>
+                  </p>
+                  <p className="text-base text-white/80">
+                    {t.attemptBonus} <span className="font-bold text-[#b59f3b]">×{attemptMultiplier}</span>
+                  </p>
+                  <div className="border-t border-white/20 pt-2 mt-2">
+                    <p className="text-xl">
+                      {t.finalScore} <span className="font-bold text-2xl text-[#6aaa64]">{finalScore}</span>
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-lg mb-6">
+                  {t.targetScore} {t.score} <span className="font-bold text-[#6aaa64]">{targetWordScore}</span>
+                </p>
+              )}
               <button
                 onClick={() => {
                   setShowModal(false);
