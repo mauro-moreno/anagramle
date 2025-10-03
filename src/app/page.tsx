@@ -92,24 +92,24 @@ const TRANSLATIONS = {
     title: 'ANAGRAMLE',
     target: 'OBJETIVO',
     guess: 'INTENTO',
-    victory: '🎉 ¡Victoria!',
+    victory: '🎉 ¡Felicitaciones!',
     gameOver: '😔 Fin del Juego',
     youGuessed: '¡Adivinaste la palabra!',
     theWordWas: 'La palabra era:',
     yourScore: 'Tu',
     targetScore: 'Objetivo',
     score: 'Puntuación:',
-    playAgain: 'Jugar de Nuevo',
+    playAgain: 'Jugar de nuevo',
     howToPlay: 'Cómo Jugar',
     instructions: 'Adivina la palabra en 6 intentos. Cada intento debe ser una palabra válida.',
-    colorGuide: 'Guía de Colores:',
+    colorGuide: 'Guía de colores:',
     correctPos: 'La letra está correcta y en la posición correcta',
     wrongPos: 'La letra está en la palabra pero en posición incorrecta',
     notInWord: 'La letra no está en la palabra',
     scoringLabel: 'Puntuación:',
     scoringInfo: 'Las palabras se puntúan como Scrabble con multiplicadores. Palabras de más de 7 letras muestran pistas (letras atenuadas).',
     letterValues: 'Valores de Letras',
-    wordNotInDictionary: 'Palabra no está en el diccionario',
+    wordNotInDictionary: 'La palabra no está en el diccionario',
     validationFailed: 'Validación fallida',
     multipliers: {
       TWS: '3P',
@@ -117,7 +117,7 @@ const TRANSLATIONS = {
       TLS: '3L',
       DLS: '2L',
     },
-    quickGuide: 'Adivina la palabra en 6 intentos con retroalimentación codificada por color (verde = posición correcta, amarillo = posición incorrecta). Suma puntos como en Scrabble con valores de letras y multiplicadores del tablero.',
+    quickGuide: 'Adivina la palabra en 6 intentos con feedback por color (verde = posición correcta, amarillo = posición incorrecta). Suma puntos como en Scrabble con valores de letras y multiplicadores del tablero.',
   },
 };
 
@@ -515,14 +515,19 @@ export default function Home() {
     }
   };
 
-  // Focus mobile input only when clicking on game area
+  // Focus mobile input when clicking on game area
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       // Only focus if clicking on the game area (tiles, main) and not on buttons
       if (!target.closest('button') && !target.closest('input') && !target.closest('select')) {
         if (mobileInputRef.current && !gameOver && !showModal && !showHelp && !showLanguageDropdown) {
-          mobileInputRef.current.focus();
+          // Use setTimeout to ensure focus happens after any blur events
+          setTimeout(() => {
+            if (mobileInputRef.current) {
+              mobileInputRef.current.focus();
+            }
+          }, 10);
         }
       }
     };
@@ -813,15 +818,6 @@ export default function Home() {
           spellCheck="false"
           onChange={handleMobileInput}
           onKeyDown={handleMobileKeyDown}
-          onBlur={(e) => {
-            // Prevent immediate refocus to avoid keyboard issues
-            e.target.readOnly = true;
-            setTimeout(() => {
-              if (mobileInputRef.current) {
-                mobileInputRef.current.readOnly = false;
-              }
-            }, 100);
-          }}
           className="absolute top-0 left-0 w-px h-px opacity-0 pointer-events-none"
           aria-hidden="true"
           tabIndex={-1}
