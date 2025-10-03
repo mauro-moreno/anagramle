@@ -1035,13 +1035,13 @@ export default function Home() {
               <button
                 onClick={handleSubmit}
                 disabled={currentGuess.length === 0}
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl transition-all ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
                   currentGuess.length > 0
                     ? 'bg-[#538d4e] hover:bg-[#6aaa64] active:scale-95 text-white shadow-md'
                     : 'bg-[#3a3a3c] text-white/40 cursor-not-allowed'
                 }`}
               >
-                →
+                ▶
               </button>
             )}
           </div>
