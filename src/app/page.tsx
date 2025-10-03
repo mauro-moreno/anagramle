@@ -735,7 +735,7 @@ export default function Home() {
               "Multi-language support (English, Spanish) / Soporte multiidioma (Inglés, Español)",
               "Variable word lengths (2-15 letters) / Longitud variable de palabras (2-15 letras)"
             ],
-            "keywords": "wordle, scrabble, word game, juego de palabras, wordle español, scrabble español, free word game, juego gratis"
+            "keywords": "wordle, scrabble, word game, juego de palabras, wordle español, scrabble español, free word game, juego gratis, NASPA Word List, TWL06, Collins Scrabble Words, SOWPODS, CSW, scrabble dictionary, DRAE, RAE, diccionario español, FISE"
           })
         }}
       />
