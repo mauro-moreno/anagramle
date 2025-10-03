@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Tile background with inverted colors -->
+  <rect x="2" y="2" width="60" height="60" rx="4" fill="#FFFFFF" stroke="#3a3a3c" stroke-width="3"/>
+
+  <!-- Letter A -->
+  <text x="32" y="48" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="bold" fill="#1e1e1e" text-anchor="middle">A</text>
+
+  <!-- Scrabble points (1 for A) -->
+  <text x="52" y="54" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="bold" fill="#1e1e1e">1</text>
+</svg>

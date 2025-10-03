@@ -1,0 +1,26 @@
+{
+  "name": "Anagramle - Wordle meets Scrabble | Juego de Palabras",
+  "short_name": "Anagramle",
+  "description": "Play the ultimate word puzzle game combining Wordle gameplay with Scrabble scoring. Juega al mejor juego de palabras combinando Wordle con puntuación de Scrabble.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#538d4e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "education", "entertainment", "juegos", "educación"],
+  "lang": "en",
+  "languages": ["en", "es"],
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "screenshots": [],
+  "related_applications": []
+}
