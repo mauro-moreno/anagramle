@@ -384,6 +384,9 @@ export default function Home() {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Ignore if event comes from the mobile input field
+      if (e.target === mobileInputRef.current) return;
+
       if (gameOver) return;
 
       // Close the language dropdown when typing
@@ -432,6 +435,9 @@ export default function Home() {
 
   useEffect(() => {
     const handleModalKeys = (e: KeyboardEvent) => {
+      // Ignore if event comes from the mobile input field
+      if (e.target === mobileInputRef.current) return;
+
       if (e.key === 'Escape') {
         if (showHelp) {
           setShowHelp(false);
@@ -508,9 +514,11 @@ export default function Home() {
 
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleSubmit();
     } else if (e.key === 'Backspace') {
       e.preventDefault();
+      e.stopPropagation();
       handleBackspace();
     }
   };

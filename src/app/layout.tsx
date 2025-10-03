@@ -97,18 +97,18 @@ export const metadata: Metadata = {
     siteName: 'Anagramle',
     images: [
       {
-        url: '/logo.svg',
-        width: 64,
-        height: 64,
-        alt: 'Anagramle Logo',
+        url: '/og-image.svg',
+        width: 1200,
+        height: 630,
+        alt: 'Anagramle - Wordle meets Scrabble',
       },
     ],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'Anagramle - Wordle meets Scrabble',
     description: 'Play the ultimate word puzzle game combining Wordle gameplay with Scrabble scoring. Free to play!',
-    images: ['/logo.svg'],
+    images: ['/og-image.svg'],
     creator: '@anagramle',
   },
   verification: {
