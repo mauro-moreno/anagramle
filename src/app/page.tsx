@@ -70,6 +70,7 @@ const TRANSLATIONS = {
     score: 'Score:',
     baseScore: 'Base Score:',
     attemptBonus: 'Attempt Bonus:',
+    longWordBonus: 'Long Word Bonus:',
     finalScore: 'Final Score:',
     playAgain: 'Play Again',
     enter: 'Enter',
@@ -111,6 +112,7 @@ const TRANSLATIONS = {
     score: 'Puntuación:',
     baseScore: 'Puntuación Base:',
     attemptBonus: 'Bono por Intento:',
+    longWordBonus: 'Bono Palabra Larga:',
     finalScore: 'Puntuación Final:',
     playAgain: 'Jugar de nuevo',
     enter: 'Enter',
@@ -586,7 +588,12 @@ export default function Home() {
       // Calculate attempt multiplier: 3x for first try, 2.5x for second, etc.
       const attemptNumber = currentRow + 1;
       const multiplier = 3.5 - (attemptNumber * 0.5);
-      const finalScoreValue = Math.round(score * multiplier);
+      let finalScoreValue = Math.round(score * multiplier);
+
+      // Add 50 point bonus for words 7+ letters long
+      if (wordLength >= 7) {
+        finalScoreValue += 50;
+      }
 
       setAttemptMultiplier(multiplier);
       setFinalScore(finalScoreValue);
@@ -1189,6 +1196,11 @@ export default function Home() {
                   <p className="text-base text-white/80">
                     {t.attemptBonus} <span className="font-bold text-[#b59f3b]">×{attemptMultiplier}</span>
                   </p>
+                  {wordLength >= 7 && (
+                    <p className="text-base text-white/80">
+                      {t.longWordBonus} <span className="font-bold text-[#6aaa64]">+50</span>
+                    </p>
+                  )}
                   <div className="border-t border-white/20 pt-2 mt-2">
                     <p className="text-xl">
                       {t.finalScore} <span className="font-bold text-2xl text-[#6aaa64]">{finalScore}</span>
