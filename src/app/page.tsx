@@ -919,30 +919,30 @@ export default function Home() {
         <div ref={languageDropdownRef} className="absolute left-4 top-1/2 -translate-y-1/2">
           <button
             onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-            className="px-2 py-1 rounded border-2 border-white/60 bg-[#2a2a2a] text-white font-bold text-xs hover:bg-white/10 transition-colors cursor-pointer min-w-[90px] text-left flex items-center justify-between"
+            className="px-2 py-1 rounded border-2 border-white/60 bg-[#2a2a2a] text-white font-bold text-base hover:bg-white/10 transition-colors cursor-pointer min-w-[60px] flex items-center justify-center gap-1"
           >
-            <span>{language === 'en' ? 'EN-US' : language === 'en-world' ? 'EN-World' : 'ES'}</span>
-            <span className="ml-1 text-[10px]">{showLanguageDropdown ? '▲' : '▼'}</span>
+            <span>{language === 'en' ? '🇺🇸' : language === 'en-world' ? '🇬🇧' : '🇪🇸'}</span>
+            <span className="text-[10px]">{showLanguageDropdown ? '▲' : '▼'}</span>
           </button>
           {showLanguageDropdown && (
             <div className="absolute top-full left-0 mt-1 w-full bg-[#2a2a2a] border-2 border-white/60 rounded overflow-hidden z-50">
               <button
                 onClick={() => { setLanguage('en'); setShowLanguageDropdown(false); }}
-                className={`w-full px-2 py-1.5 text-xs font-bold text-left hover:bg-white/10 transition-colors ${language === 'en' ? 'bg-white/20 text-white' : 'text-white/80'}`}
+                className={`w-full px-2 py-2 text-xl text-center hover:bg-white/10 transition-colors ${language === 'en' ? 'bg-white/20' : ''}`}
               >
-                EN-US
+                🇺🇸
               </button>
               <button
                 onClick={() => { setLanguage('en-world'); setShowLanguageDropdown(false); }}
-                className={`w-full px-2 py-1.5 text-xs font-bold text-left hover:bg-white/10 transition-colors ${language === 'en-world' ? 'bg-white/20 text-white' : 'text-white/80'}`}
+                className={`w-full px-2 py-2 text-xl text-center hover:bg-white/10 transition-colors ${language === 'en-world' ? 'bg-white/20' : ''}`}
               >
-                EN-World
+                🇬🇧
               </button>
               <button
                 onClick={() => { setLanguage('es'); setShowLanguageDropdown(false); }}
-                className={`w-full px-2 py-1.5 text-xs font-bold text-left hover:bg-white/10 transition-colors ${language === 'es' ? 'bg-white/20 text-white' : 'text-white/80'}`}
+                className={`w-full px-2 py-2 text-xl text-center hover:bg-white/10 transition-colors ${language === 'es' ? 'bg-white/20' : ''}`}
               >
-                ES
+                🇪🇸
               </button>
             </div>
           )}
