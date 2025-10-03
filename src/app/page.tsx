@@ -764,7 +764,7 @@ export default function Home() {
           // Priority: correct > present > absent
           if (state === 'correct') {
             return 'correct'; // Can't get better than correct
-          } else if (state === 'present' && bestState !== 'correct') {
+          } else if (state === 'present') {
             bestState = 'present';
           } else if (state === 'absent' && bestState === 'empty') {
             bestState = 'absent';
