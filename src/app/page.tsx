@@ -274,13 +274,22 @@ export default function Home() {
 
   const t = TRANSLATIONS[language === 'en-world' ? 'en' : language];
 
-  // Detect touch device on mount
+  // Detect touch device on mount and autofocus input
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       setIsTouchDevice(isTouch);
+
+      // Autofocus mobile input on touch devices
+      if (isTouch && mobileInputRef.current && !gameOver && !showModal && !showHelp) {
+        setTimeout(() => {
+          if (mobileInputRef.current) {
+            mobileInputRef.current.focus();
+          }
+        }, 500);
+      }
     }
-  }, []);
+  }, [gameOver, showModal, showHelp]);
 
   // Initialize language from localStorage or browser on client side only
   useEffect(() => {
