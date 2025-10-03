@@ -72,6 +72,7 @@ const TRANSLATIONS = {
     attemptBonus: 'Attempt Bonus:',
     finalScore: 'Final Score:',
     playAgain: 'Play Again',
+    submitWord: 'Submit Word',
     howToPlay: 'How to Play',
     instructions: 'Guess the word in 6 tries. Each guess must be a valid word.',
     colorGuide: 'Color Guide:',
@@ -111,6 +112,7 @@ const TRANSLATIONS = {
     attemptBonus: 'Bono por Intento:',
     finalScore: 'Puntuación Final:',
     playAgain: 'Jugar de nuevo',
+    submitWord: 'Enviar Palabra',
     howToPlay: 'Cómo Jugar',
     instructions: 'Adivina la palabra en 6 intentos. Cada intento debe ser una palabra válida.',
     colorGuide: 'Guía de colores:',
@@ -264,12 +266,21 @@ export default function Home() {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [attemptMultiplier, setAttemptMultiplier] = useState(1);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const currentTileRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const mainContainerRef = useRef<HTMLElement>(null);
 
   const t = TRANSLATIONS[language === 'en-world' ? 'en' : language];
+
+  // Detect touch device on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      setIsTouchDevice(isTouch);
+    }
+  }, []);
 
   // Initialize language from localStorage or browser on client side only
   useEffect(() => {
@@ -1067,6 +1078,18 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* Mobile Submit Button */}
+        {isTouchDevice && !gameOver && currentGuess.length > 0 && (
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={handleSubmit}
+              className="bg-[#538d4e] hover:bg-[#6aaa64] active:bg-[#4a7a45] px-8 py-3 rounded-lg font-bold text-white transition-colors text-lg shadow-lg"
+            >
+              {t.submitWord}
+            </button>
+          </div>
+        )}
 
         <div className="max-w-2xl mx-auto text-center px-4 mt-6 text-sm text-white/70 leading-relaxed">
           {t.quickGuide}
