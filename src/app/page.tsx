@@ -72,7 +72,8 @@ const TRANSLATIONS = {
     attemptBonus: 'Attempt Bonus:',
     finalScore: 'Final Score:',
     playAgain: 'Play Again',
-    submitWord: 'Submit Word',
+    enter: 'Enter',
+    delete: 'Del',
     howToPlay: 'How to Play',
     instructions: 'Guess the word in 6 tries. Each guess must be a valid word.',
     colorGuide: 'Color Guide:',
@@ -112,7 +113,8 @@ const TRANSLATIONS = {
     attemptBonus: 'Bono por Intento:',
     finalScore: 'Puntuación Final:',
     playAgain: 'Jugar de nuevo',
-    submitWord: 'Enviar Palabra',
+    enter: 'Enter',
+    delete: 'Del',
     howToPlay: 'Cómo Jugar',
     instructions: 'Adivina la palabra en 6 intentos. Cada intento debe ser una palabra válida.',
     colorGuide: 'Guía de colores:',
@@ -266,30 +268,11 @@ export default function Home() {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [attemptMultiplier, setAttemptMultiplier] = useState(1);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const currentTileRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
-  const mobileInputRef = useRef<HTMLInputElement>(null);
   const mainContainerRef = useRef<HTMLElement>(null);
 
   const t = TRANSLATIONS[language === 'en-world' ? 'en' : language];
-
-  // Detect touch device on mount and autofocus input
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      setIsTouchDevice(isTouch);
-
-      // Autofocus mobile input on touch devices
-      if (isTouch && mobileInputRef.current && !gameOver && !showModal && !showHelp) {
-        setTimeout(() => {
-          if (mobileInputRef.current) {
-            mobileInputRef.current.focus();
-          }
-        }, 500);
-      }
-    }
-  }, [gameOver, showModal, showHelp]);
 
   // Initialize language from localStorage or browser on client side only
   useEffect(() => {
@@ -427,9 +410,6 @@ export default function Home() {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Ignore if event comes from the mobile input field
-      if (e.target === mobileInputRef.current) return;
-
       if (gameOver) return;
 
       // Close the language dropdown when typing
@@ -478,9 +458,6 @@ export default function Home() {
 
   useEffect(() => {
     const handleModalKeys = (e: KeyboardEvent) => {
-      // Ignore if event comes from the mobile input field
-      if (e.target === mobileInputRef.current) return;
-
       if (e.key === 'Escape') {
         if (showHelp) {
           setShowHelp(false);
@@ -520,84 +497,6 @@ export default function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
-
-  // Handle mobile input (only on touch devices)
-  const handleMobileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only process on touch devices
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (!isTouchDevice) return;
-
-    if (gameOver || showModal || showHelp) return;
-
-    const value = e.target.value;
-    if (!value) return;
-
-    const lastChar = value.slice(-1).toUpperCase();
-
-    // Clear the input to allow continuous typing
-    e.target.value = '';
-
-    if (/^[A-ZÑ]$/.test(lastChar)) {
-      const newGuess = currentGuess + lastChar;
-
-      // For Spanish, auto-combine digraphs
-      if (language === 'es') {
-        const tokens = tokenizeSpanishWord(newGuess);
-        if (tokens.length <= wordLength) {
-          setCurrentGuess(newGuess);
-          setCurrentGuessTokens(tokens);
-        }
-      } else {
-        if (newGuess.length <= wordLength) {
-          setCurrentGuess(newGuess);
-          setCurrentGuessTokens(newGuess.split(''));
-        }
-      }
-    }
-  };
-
-  const handleMobileKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Only process on touch devices
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (!isTouchDevice) return;
-
-    if (gameOver) return;
-
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      handleSubmit();
-    } else if (e.key === 'Backspace') {
-      e.preventDefault();
-      e.stopPropagation();
-      handleBackspace();
-    }
-  };
-
-  // Focus mobile input when clicking on game area (mobile/touch devices only)
-  useEffect(() => {
-    // Only enable mobile input on touch devices
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (!isTouchDevice) return;
-
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      // Only focus if clicking on the game area (tiles, main) and not on buttons
-      if (!target.closest('button') && !target.closest('input') && !target.closest('select')) {
-        if (mobileInputRef.current && !gameOver && !showModal && !showHelp && !showLanguageDropdown) {
-          // Use setTimeout to ensure focus happens after any blur events
-          setTimeout(() => {
-            if (mobileInputRef.current) {
-              mobileInputRef.current.focus();
-            }
-          }, 10);
-        }
-      }
-    };
-    document.addEventListener('click', handleClick);
-
-    return () => document.removeEventListener('click', handleClick);
-  }, [gameOver, showModal, showHelp, showLanguageDropdown]);
 
   const getScrabblePoints = () => {
     return language === 'es' ? SCRABBLE_POINTS_ES : SCRABBLE_POINTS_EN;
@@ -968,21 +867,6 @@ export default function Home() {
         }}
       />
       <div className="flex flex-col h-screen w-full">
-        {/* Hidden input for mobile keyboard */}
-        <input
-          ref={mobileInputRef}
-          type="text"
-          inputMode="text"
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="characters"
-          spellCheck="false"
-          onChange={handleMobileInput}
-          onKeyDown={handleMobileKeyDown}
-          className="absolute top-0 left-0 w-px h-px opacity-0 pointer-events-none"
-          aria-hidden="true"
-          tabIndex={-1}
-        />
         <header className="w-full text-center border-b border-[#3a3a3c] py-3 px-2 relative flex-shrink-0">
         <div ref={languageDropdownRef} className="absolute left-4 top-1/2 -translate-y-1/2">
           <button
@@ -1033,26 +917,11 @@ export default function Home() {
             <span className="text-sm text-white/60 font-semibold">{t.target}</span>
             <span className="text-3xl font-bold text-[#6aaa64]">{targetWordScore}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm text-white/60 font-semibold">{t.guess}</span>
-              <span className="text-3xl font-bold text-[#b59f3b]">
-                {!gameOver && currentGuess.length > 0 ? currentGuessScore : '–'}
-              </span>
-            </div>
-            {isTouchDevice && !gameOver && (
-              <button
-                onClick={handleSubmit}
-                disabled={currentGuess.length === 0}
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
-                  currentGuess.length > 0
-                    ? 'bg-[#538d4e] hover:bg-[#6aaa64] active:scale-95 text-white shadow-md'
-                    : 'bg-[#3a3a3c] text-white/40 cursor-not-allowed'
-                }`}
-              >
-                ▶
-              </button>
-            )}
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm text-white/60 font-semibold">{t.guess}</span>
+            <span className="text-3xl font-bold text-[#b59f3b]">
+              {!gameOver && currentGuess.length > 0 ? currentGuessScore : '–'}
+            </span>
           </div>
         </div>
 
@@ -1103,8 +972,117 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="max-w-2xl mx-auto text-center px-4 mt-6 text-sm text-white/70 leading-relaxed">
-          {t.quickGuide}
+        {/* On-screen Keyboard */}
+        <div className="w-full max-w-2xl mx-auto px-2 pb-4 mt-4">
+          <div className="flex flex-col gap-2">
+            {/* First Row - QWERTYUIOP */}
+            <div className="flex gap-1 justify-center">
+              {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(letter => (
+                <button
+                  key={letter}
+                  onClick={() => {
+                    if (gameOver) return;
+                    const newChar = letter;
+                    const newGuess = currentGuess + newChar;
+                    if (language === 'es') {
+                      const tokens = tokenizeSpanishWord(newGuess);
+                      if (tokens.length <= wordLength) {
+                        setCurrentGuess(newGuess);
+                        setCurrentGuessTokens(tokens);
+                      }
+                    } else {
+                      if (newGuess.length <= wordLength) {
+                        setCurrentGuess(newGuess);
+                        setCurrentGuessTokens(newGuess.split(''));
+                      }
+                    }
+                  }}
+                  className="flex-1 min-w-0 h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-lg relative flex items-center justify-center"
+                >
+                  {letter}
+                  <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
+                    {getScrabblePoints()[letter]}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Second Row - ASDFGHJKL + Ñ for Spanish */}
+            <div className="flex gap-1 justify-center px-4">
+              {(language === 'es' ? ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Ñ'] : ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L']).map(letter => (
+                <button
+                  key={letter}
+                  onClick={() => {
+                    if (gameOver) return;
+                    const newChar = letter;
+                    const newGuess = currentGuess + newChar;
+                    if (language === 'es') {
+                      const tokens = tokenizeSpanishWord(newGuess);
+                      if (tokens.length <= wordLength) {
+                        setCurrentGuess(newGuess);
+                        setCurrentGuessTokens(tokens);
+                      }
+                    } else {
+                      if (newGuess.length <= wordLength) {
+                        setCurrentGuess(newGuess);
+                        setCurrentGuessTokens(newGuess.split(''));
+                      }
+                    }
+                  }}
+                  className="flex-1 min-w-0 h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-lg relative flex items-center justify-center"
+                >
+                  {letter}
+                  <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
+                    {getScrabblePoints()[letter]}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Third Row - ENTER + Z-M + DELETE */}
+            <div className="flex gap-1 justify-center">
+              <button
+                onClick={handleSubmit}
+                className="flex-[1.5] h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-sm"
+              >
+                {t.enter}
+              </button>
+              {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(letter => (
+                <button
+                  key={letter}
+                  onClick={() => {
+                    if (gameOver) return;
+                    const newChar = letter;
+                    const newGuess = currentGuess + newChar;
+                    if (language === 'es') {
+                      const tokens = tokenizeSpanishWord(newGuess);
+                      if (tokens.length <= wordLength) {
+                        setCurrentGuess(newGuess);
+                        setCurrentGuessTokens(tokens);
+                      }
+                    } else {
+                      if (newGuess.length <= wordLength) {
+                        setCurrentGuess(newGuess);
+                        setCurrentGuessTokens(newGuess.split(''));
+                      }
+                    }
+                  }}
+                  className="flex-1 min-w-0 h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-lg relative flex items-center justify-center"
+                >
+                  {letter}
+                  <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
+                    {getScrabblePoints()[letter]}
+                  </span>
+                </button>
+              ))}
+              <button
+                onClick={handleBackspace}
+                className="flex-[1.5] h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-sm"
+              >
+                {t.delete}
+              </button>
+            </div>
+          </div>
         </div>
 
         {showModal && (
