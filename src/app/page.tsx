@@ -915,8 +915,8 @@ export default function Home() {
         }}
       />
       <div className="flex flex-col h-screen w-full">
-        <header className="w-full text-center border-b border-[#3a3a3c] py-3 px-2 relative flex-shrink-0">
-        <div ref={languageDropdownRef} className="absolute left-4 top-1/2 -translate-y-1/2">
+        <header className="w-full text-center border-b border-[#3a3a3c] py-3 px-2 relative z-30 flex-shrink-0">
+        <div ref={languageDropdownRef} className="absolute left-4 top-1/2 -translate-y-1/2 z-30">
           <button
             onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
             className="px-2 py-1 rounded border-2 border-white/60 bg-[#2a2a2a] text-white font-bold text-base hover:bg-white/10 transition-colors cursor-pointer min-w-[60px] flex items-center justify-center gap-1"
@@ -953,7 +953,7 @@ export default function Home() {
         </div>
         <button
           onClick={() => setShowHelp(true)}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full border-2 border-white/60 flex items-center justify-center font-bold text-sm text-white/60 hover:bg-white/10 transition-colors"
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full border-2 border-white/60 flex items-center justify-center font-bold text-sm text-white/60 hover:bg-white/10 transition-colors z-30"
         >
           ?
         </button>
