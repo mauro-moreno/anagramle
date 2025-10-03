@@ -728,6 +728,54 @@ export default function Home() {
   const currentGuessScore = calculateScore(currentGuess, boardRow, startCol);
   const targetWordScore = calculateScore(targetWord, boardRow, startCol);
 
+  // Get keyboard letter states based on guesses
+  const getKeyboardLetterState = (letter: string): LetterState => {
+    // In Spanish, mark W and K as absent by default (uncommon letters)
+    if (language === 'es' && (letter === 'W' || letter === 'K')) {
+      // Check if they've been guessed - if so, use actual state
+      for (let rowIndex = 0; rowIndex < currentRow; rowIndex++) {
+        const tokens = guessTokens[rowIndex];
+        if (!tokens || tokens.length === 0) continue;
+
+        for (let colIndex = 0; colIndex < tokens.length; colIndex++) {
+          if (tokens[colIndex] === letter) {
+            const state = getLetterState(rowIndex, colIndex);
+            if (state === 'correct') return 'correct';
+            if (state === 'present') return 'present';
+            if (state === 'absent') return 'absent';
+          }
+        }
+      }
+      // Not guessed yet, mark as absent by default
+      return 'absent';
+    }
+
+    let bestState: LetterState = 'empty';
+
+    // Check all completed guesses
+    for (let rowIndex = 0; rowIndex < currentRow; rowIndex++) {
+      const tokens = guessTokens[rowIndex];
+      if (!tokens || tokens.length === 0) continue;
+
+      // Check if this letter appears in this guess
+      for (let colIndex = 0; colIndex < tokens.length; colIndex++) {
+        if (tokens[colIndex] === letter) {
+          const state = getLetterState(rowIndex, colIndex);
+          // Priority: correct > present > absent
+          if (state === 'correct') {
+            return 'correct'; // Can't get better than correct
+          } else if (state === 'present' && bestState !== 'correct') {
+            bestState = 'present';
+          } else if (state === 'absent' && bestState === 'empty') {
+            bestState = 'absent';
+          }
+        }
+      }
+    }
+
+    return bestState;
+  };
+
   return (
     <>
       {/* Structured Data for SEO */}
@@ -977,66 +1025,84 @@ export default function Home() {
           <div className="flex flex-col gap-2">
             {/* First Row - QWERTYUIOP */}
             <div className="flex gap-1 justify-center">
-              {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(letter => (
-                <button
-                  key={letter}
-                  onClick={() => {
-                    if (gameOver) return;
-                    const newChar = letter;
-                    const newGuess = currentGuess + newChar;
-                    if (language === 'es') {
-                      const tokens = tokenizeSpanishWord(newGuess);
-                      if (tokens.length <= wordLength) {
-                        setCurrentGuess(newGuess);
-                        setCurrentGuessTokens(tokens);
+              {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(letter => {
+                const keyState = getKeyboardLetterState(letter);
+                const bgColor = keyState === 'correct' ? 'bg-[#538d4e]' :
+                                keyState === 'present' ? 'bg-[#b59f3b]' :
+                                keyState === 'absent' ? 'bg-[#3a3a3c]' :
+                                'bg-[#818384]';
+                const hoverColor = keyState === 'empty' ? 'hover:bg-[#6a6b6c]' : '';
+
+                return (
+                  <button
+                    key={letter}
+                    onClick={() => {
+                      if (gameOver) return;
+                      const newChar = letter;
+                      const newGuess = currentGuess + newChar;
+                      if (language === 'es') {
+                        const tokens = tokenizeSpanishWord(newGuess);
+                        if (tokens.length <= wordLength) {
+                          setCurrentGuess(newGuess);
+                          setCurrentGuessTokens(tokens);
+                        }
+                      } else {
+                        if (newGuess.length <= wordLength) {
+                          setCurrentGuess(newGuess);
+                          setCurrentGuessTokens(newGuess.split(''));
+                        }
                       }
-                    } else {
-                      if (newGuess.length <= wordLength) {
-                        setCurrentGuess(newGuess);
-                        setCurrentGuessTokens(newGuess.split(''));
-                      }
-                    }
-                  }}
-                  className="flex-1 min-w-0 h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-lg relative flex items-center justify-center"
-                >
-                  {letter}
-                  <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
-                    {getScrabblePoints()[letter]}
-                  </span>
-                </button>
-              ))}
+                    }}
+                    className={`flex-1 min-w-0 h-14 ${bgColor} ${hoverColor} text-white font-bold rounded text-lg relative flex items-center justify-center`}
+                  >
+                    {letter}
+                    <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
+                      {getScrabblePoints()[letter]}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Second Row - ASDFGHJKL + Ñ for Spanish */}
             <div className="flex gap-1 justify-center px-4">
-              {(language === 'es' ? ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Ñ'] : ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L']).map(letter => (
-                <button
-                  key={letter}
-                  onClick={() => {
-                    if (gameOver) return;
-                    const newChar = letter;
-                    const newGuess = currentGuess + newChar;
-                    if (language === 'es') {
-                      const tokens = tokenizeSpanishWord(newGuess);
-                      if (tokens.length <= wordLength) {
-                        setCurrentGuess(newGuess);
-                        setCurrentGuessTokens(tokens);
+              {(language === 'es' ? ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Ñ'] : ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L']).map(letter => {
+                const keyState = getKeyboardLetterState(letter);
+                const bgColor = keyState === 'correct' ? 'bg-[#538d4e]' :
+                                keyState === 'present' ? 'bg-[#b59f3b]' :
+                                keyState === 'absent' ? 'bg-[#3a3a3c]' :
+                                'bg-[#818384]';
+                const hoverColor = keyState === 'empty' ? 'hover:bg-[#6a6b6c]' : '';
+
+                return (
+                  <button
+                    key={letter}
+                    onClick={() => {
+                      if (gameOver) return;
+                      const newChar = letter;
+                      const newGuess = currentGuess + newChar;
+                      if (language === 'es') {
+                        const tokens = tokenizeSpanishWord(newGuess);
+                        if (tokens.length <= wordLength) {
+                          setCurrentGuess(newGuess);
+                          setCurrentGuessTokens(tokens);
+                        }
+                      } else {
+                        if (newGuess.length <= wordLength) {
+                          setCurrentGuess(newGuess);
+                          setCurrentGuessTokens(newGuess.split(''));
+                        }
                       }
-                    } else {
-                      if (newGuess.length <= wordLength) {
-                        setCurrentGuess(newGuess);
-                        setCurrentGuessTokens(newGuess.split(''));
-                      }
-                    }
-                  }}
-                  className="flex-1 min-w-0 h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-lg relative flex items-center justify-center"
-                >
-                  {letter}
-                  <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
-                    {getScrabblePoints()[letter]}
-                  </span>
-                </button>
-              ))}
+                    }}
+                    className={`flex-1 min-w-0 h-14 ${bgColor} ${hoverColor} text-white font-bold rounded text-lg relative flex items-center justify-center`}
+                  >
+                    {letter}
+                    <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
+                      {getScrabblePoints()[letter]}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Third Row - ENTER + Z-M + DELETE */}
@@ -1047,34 +1113,43 @@ export default function Home() {
               >
                 {t.enter}
               </button>
-              {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(letter => (
-                <button
-                  key={letter}
-                  onClick={() => {
-                    if (gameOver) return;
-                    const newChar = letter;
-                    const newGuess = currentGuess + newChar;
-                    if (language === 'es') {
-                      const tokens = tokenizeSpanishWord(newGuess);
-                      if (tokens.length <= wordLength) {
-                        setCurrentGuess(newGuess);
-                        setCurrentGuessTokens(tokens);
+              {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(letter => {
+                const keyState = getKeyboardLetterState(letter);
+                const bgColor = keyState === 'correct' ? 'bg-[#538d4e]' :
+                                keyState === 'present' ? 'bg-[#b59f3b]' :
+                                keyState === 'absent' ? 'bg-[#3a3a3c]' :
+                                'bg-[#818384]';
+                const hoverColor = keyState === 'empty' ? 'hover:bg-[#6a6b6c]' : '';
+
+                return (
+                  <button
+                    key={letter}
+                    onClick={() => {
+                      if (gameOver) return;
+                      const newChar = letter;
+                      const newGuess = currentGuess + newChar;
+                      if (language === 'es') {
+                        const tokens = tokenizeSpanishWord(newGuess);
+                        if (tokens.length <= wordLength) {
+                          setCurrentGuess(newGuess);
+                          setCurrentGuessTokens(tokens);
+                        }
+                      } else {
+                        if (newGuess.length <= wordLength) {
+                          setCurrentGuess(newGuess);
+                          setCurrentGuessTokens(newGuess.split(''));
+                        }
                       }
-                    } else {
-                      if (newGuess.length <= wordLength) {
-                        setCurrentGuess(newGuess);
-                        setCurrentGuessTokens(newGuess.split(''));
-                      }
-                    }
-                  }}
-                  className="flex-1 min-w-0 h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-lg relative flex items-center justify-center"
-                >
-                  {letter}
-                  <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
-                    {getScrabblePoints()[letter]}
-                  </span>
-                </button>
-              ))}
+                    }}
+                    className={`flex-1 min-w-0 h-14 ${bgColor} ${hoverColor} text-white font-bold rounded text-lg relative flex items-center justify-center`}
+                  >
+                    {letter}
+                    <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
+                      {getScrabblePoints()[letter]}
+                    </span>
+                  </button>
+                );
+              })}
               <button
                 onClick={handleBackspace}
                 className="flex-[1.5] h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-sm"
