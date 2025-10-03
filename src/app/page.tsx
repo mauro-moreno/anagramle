@@ -1024,11 +1024,26 @@ export default function Home() {
             <span className="text-sm text-white/60 font-semibold">{t.target}</span>
             <span className="text-3xl font-bold text-[#6aaa64]">{targetWordScore}</span>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm text-white/60 font-semibold">{t.guess}</span>
-            <span className="text-3xl font-bold text-[#b59f3b]">
-              {!gameOver && currentGuess.length > 0 ? currentGuessScore : '–'}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm text-white/60 font-semibold">{t.guess}</span>
+              <span className="text-3xl font-bold text-[#b59f3b]">
+                {!gameOver && currentGuess.length > 0 ? currentGuessScore : '–'}
+              </span>
+            </div>
+            {isTouchDevice && !gameOver && (
+              <button
+                onClick={handleSubmit}
+                disabled={currentGuess.length === 0}
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl transition-all ${
+                  currentGuess.length > 0
+                    ? 'bg-[#538d4e] hover:bg-[#6aaa64] active:scale-95 text-white shadow-md'
+                    : 'bg-[#3a3a3c] text-white/40 cursor-not-allowed'
+                }`}
+              >
+                →
+              </button>
+            )}
           </div>
         </div>
 
@@ -1078,18 +1093,6 @@ export default function Home() {
             ))}
           </div>
         </div>
-
-        {/* Mobile Submit Button */}
-        {isTouchDevice && !gameOver && currentGuess.length > 0 && (
-          <div className="flex justify-center mt-6">
-            <button
-              onClick={handleSubmit}
-              className="bg-[#538d4e] hover:bg-[#6aaa64] active:bg-[#4a7a45] px-8 py-3 rounded-lg font-bold text-white transition-colors text-lg shadow-lg"
-            >
-              {t.submitWord}
-            </button>
-          </div>
-        )}
 
         <div className="max-w-2xl mx-auto text-center px-4 mt-6 text-sm text-white/70 leading-relaxed">
           {t.quickGuide}
