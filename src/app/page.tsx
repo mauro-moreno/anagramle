@@ -86,6 +86,7 @@ const TRANSLATIONS = {
       TLS: '3L',
       DLS: '2L',
     },
+    quickGuide: 'Guess the word in 6 tries with color-coded feedback (green = correct position, yellow = wrong position). Score points like Scrabble with letter values and board multipliers.',
   },
   es: {
     title: 'ANAGRAMLE',
@@ -116,6 +117,7 @@ const TRANSLATIONS = {
       TLS: '3L',
       DLS: '2L',
     },
+    quickGuide: 'Adivina la palabra en 6 intentos con retroalimentación codificada por color (verde = posición correcta, amarillo = posición incorrecta). Suma puntos como en Scrabble con valores de letras y multiplicadores del tablero.',
   },
 };
 
@@ -927,6 +929,10 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto text-center px-4 mt-6 text-sm text-white/70 leading-relaxed">
+          {t.quickGuide}
         </div>
 
         {showModal && (
