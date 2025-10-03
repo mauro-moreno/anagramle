@@ -257,6 +257,7 @@ export default function Home() {
   const currentTileRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
+  const mainContainerRef = useRef<HTMLElement>(null);
 
   const t = TRANSLATIONS[language === 'en-world' ? 'en' : language];
 
@@ -783,6 +784,13 @@ export default function Home() {
       setShowModal(false);
       setFinalScore(0);
       setAttemptMultiplier(1);
+
+      // Scroll back to top of game area
+      setTimeout(() => {
+        if (mainContainerRef.current) {
+          mainContainerRef.current.scrollTop = 0;
+        }
+      }, 100);
     } catch (error) {
       console.error('Failed to fetch word:', error);
     }
@@ -989,7 +997,7 @@ export default function Home() {
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center py-4 px-2">
+      <main ref={mainContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center py-4 px-2">
         <div className="flex gap-8 items-center mb-4">
           <div className="flex items-baseline gap-2">
             <span className="text-sm text-white/60 font-semibold">{t.target}</span>
