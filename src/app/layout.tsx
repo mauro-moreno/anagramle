@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://anagramle.vercel.app'),
-  title: "Anagramle - Wordle meets Scrabble | Free Word Puzzle Game",
+  title: "Anagramle - Juego de palabras | Wordle meets Scrabble",
   description: "Play Anagramle, the ultimate word puzzle game combining Wordle's gameplay with Scrabble scoring. Guess words, earn points with multipliers, and master the daily word challenge. Free to play!",
   keywords: [
     // English keywords
@@ -92,7 +92,7 @@ export const metadata: Metadata = {
     locale: 'en_US',
     alternateLocale: ['es_ES', 'es_MX', 'es_AR'],
     url: 'https://anagramle.vercel.app',
-    title: 'Anagramle - Wordle meets Scrabble | Juego de Palabras',
+    title: 'Anagramle - Juego de palabras | Wordle meets Scrabble',
     description: 'Play the ultimate word puzzle game combining Wordle gameplay with Scrabble scoring. ¡Juega el mejor juego de palabras que combina Wordle con puntuación de Scrabble!',
     siteName: 'Anagramle',
     images: [
@@ -106,7 +106,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Anagramle - Wordle meets Scrabble',
+    title: 'Anagramle - Juego de palabras | Wordle meets Scrabble',
     description: 'Play the ultimate word puzzle game combining Wordle gameplay with Scrabble scoring. Free to play!',
     images: ['/og-image.svg'],
     creator: '@anagramle',
