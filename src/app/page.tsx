@@ -383,7 +383,7 @@ export default function Home() {
         </div>
 
         {/* ── Tile grid ───────────────────────────────────────────────── */}
-        <div style={{ flexShrink: 0, padding: '0 18px', position: 'relative' }}>
+        <div translate="no" style={{ flexShrink: 0, padding: '0 18px', position: 'relative' }}>
           {errorMessage && (
             <div style={{
               position: 'absolute', top: -32, left: '50%', transform: 'translateX(-50%)',
@@ -472,7 +472,7 @@ export default function Home() {
         <div style={{ flex: 1, minHeight: 8 }} />
 
         {/* ── Keyboard ────────────────────────────────────────────────── */}
-        <section style={{ flexShrink: 0, padding: '8px 10px 32px' }}>
+        <section translate="no" style={{ flexShrink: 0, padding: '8px 10px 32px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
             {kbdRows.map((row, ri) => (
               <div key={ri} style={{
