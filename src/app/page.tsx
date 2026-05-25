@@ -11,6 +11,7 @@ import { TRANSLATIONS } from '@/lib/translations';
 import { T } from '@/lib/theme';
 import { Tile } from '@/components/Tile';
 import { EndOverlay } from '@/components/EndOverlay';
+import { KEYBOARD_LAYOUTS } from '@/lib/keyboard';
 
 // ── Main component ────────────────────────────────────────────────────
 export default function Home() {
@@ -18,7 +19,7 @@ export default function Home() {
   const {
     targetWord, targetTokens, wordLength, boardRow, startCol, hintPositions,
     guesses, guessTokens, currentGuess, currentGuessTokens, currentRow,
-    gameOver, won, guessScores, animatingRow, finalScore, attemptMultiplier,
+    gameOver, won, guessScores, animatingRow, scoreBreakdown,
     showModal, language, gameMode,
   } = state;
   const { setLanguage, setGameMode, setShowModal, addChar, backspace, submitGuess, resetGame } = actions;
@@ -151,19 +152,7 @@ export default function Home() {
   // Gap between tiles (tighter for longer words)
   const gap = wordLength <= 7 ? 6 : wordLength <= 10 ? 5 : 3;
 
-  // Keyboard rows
-  const kbdRows = [
-    language === 'es'
-      ? ['Q','E','R','RR','T','Y','U','I','O','P']
-      : ['Q','W','E','R','T','Y','U','I','O','P'],
-    language === 'es'
-      ? ['A','S','D','F','G','H','J','L','LL','Ñ']
-      : ['A','S','D','F','G','H','J','K','L'],
-    language === 'es'
-      ? ['Z','X','C','CH','V','B','N','M']
-      : ['Z','X','C','V','B','N','M'],
-  ];
-  const digraphRow: string[] = [];
+  const kbdRows = KEYBOARD_LAYOUTS[language];
 
   const kbdStateBg = (state: LetterState) =>
     state === 'correct' ? T.correct
@@ -337,7 +326,7 @@ export default function Home() {
               display: 'flex', alignItems: 'baseline', gap: 6,
               transformOrigin: 'left bottom',
             }}>
-              {hasUserInput ? currentGuessScore : '—'}
+              {hasUserInput ? currentGuessScore + (wordLength >= 7 ? 50 : 0) : '—'}
               {bestScore > 0 && (
                 <span style={{
                   fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
@@ -552,28 +541,6 @@ export default function Home() {
               </div>
             ))}
 
-            {/* Digraph row for Spanish */}
-            {digraphRow.length > 0 && (
-              <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
-                {digraphRow.map(tok => {
-                  const st = keyboardStates.get(tok) ?? 'empty';
-                  const bg = kbdStateBg(st);
-                  const fg = st !== 'empty' ? '#fff' : T.fg;
-                  return (
-                    <button key={tok} onClick={() => handleKey(tok)} style={{
-                      width: 72, height: 44, padding: 0, flexShrink: 0,
-                      borderRadius: 10, border: 'none',
-                      background: bg, color: fg,
-                      fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
-                      fontWeight: 600, fontSize: 14,
-                      cursor: 'pointer',
-                      boxShadow: `0 1px 0 ${T.tileShadow}`,
-                      transition: 'transform 80ms ease, background 200ms ease',
-                    }}>{tok}</button>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </section>
 
@@ -582,11 +549,7 @@ export default function Home() {
           <EndOverlay
             won={won}
             targetWord={targetWord}
-            finalScore={won ? finalScore : 0}
-            targetScore={targetWordScore}
-            attempts={currentRow}
-            wordLength={wordLength}
-            attemptMultiplier={attemptMultiplier}
+            breakdown={won ? scoreBreakdown : null}
             gameMode={gameMode}
             onClose={() => setShowModal(false)}
             onPlayAgain={() => { setShowModal(false); resetGame(); }}

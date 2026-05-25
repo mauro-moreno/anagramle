@@ -80,6 +80,25 @@ export function calculateScore(
   return score * wordMult;
 }
 
+export type ScoreBreakdown = {
+  base: number;
+  multiplier: number;
+  longWordBonus: number;
+  total: number;
+  attempt: number;
+};
+
+export function computeFinalScore(
+  baseScore: number,
+  attempt: number,
+  wordLength: number,
+): ScoreBreakdown {
+  const multiplier = 3.5 - attempt * 0.5;
+  const longWordBonus = wordLength >= 7 ? 50 : 0;
+  const total = Math.round(baseScore * multiplier) + longWordBonus;
+  return { base: baseScore, multiplier, longWordBonus, total, attempt };
+}
+
 export function evaluateGuess(guessTokens: string[], targetTokens: string[]): LetterState[] {
   return guessTokens.map((token, colIndex) => {
     if (targetTokens[colIndex] === token) return 'correct';

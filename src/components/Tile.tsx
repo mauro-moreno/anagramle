@@ -10,7 +10,7 @@ export function Tile({
   isCurrent?: boolean; isHint?: boolean; size: number; scrabblePoints: Record<string, number>;
 }) {
   const radius = Math.round(size * 0.18);
-  const showChips = size >= 26;
+  const showChips = size >= 32;
   const multAccent = multiplier ? MULT_COLOR[multiplier] : undefined;
   const showMultChip = state === 'empty' && !!multAccent;
   const stateBg = state === 'correct' ? T.correct
@@ -63,7 +63,7 @@ export function Tile({
           background: multAccent,
         }} />
       )}
-      <span style={{ opacity: isHint ? 0.45 : 1, fontStyle: isHint ? 'italic' : 'normal' }}>
+      <span style={{ position: 'relative', zIndex: 1, opacity: isHint ? 0.45 : 1, fontStyle: isHint ? 'italic' : 'normal' }}>
         {ch}
       </span>
       {ch && showChips && (

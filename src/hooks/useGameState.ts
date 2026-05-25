@@ -1,35 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { calculateScore, MAX_ATTEMPTS } from '@/lib/game';
+import { useState, useEffect, useReducer, useCallback } from 'react';
+import { MAX_ATTEMPTS, calculateScore, type ScoreBreakdown } from '@/lib/game';
 import { tokenizeWord } from '@/lib/tokenize';
+import { decryptWord } from '@/lib/cipher';
+import {
+  gameReducer, INITIAL_STATE,
+  type Language, type GameMode,
+} from '@/lib/gameReducer';
 
-function decrypt(encryptedBase64: string, key: string): string {
-  const encrypted = Buffer.from(encryptedBase64, 'base64').toString();
-  let result = '';
-  for (let i = 0; i < encrypted.length; i++) {
-    result += String.fromCharCode(encrypted.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return result;
-}
-
-function getTodayUTC(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-function generateHints(tokens: string[]): Set<number> {
-  const hints = new Set<number>();
-  if (tokens.length > 7) {
-    const numHints = tokens.length - 7;
-    const available = Array.from({ length: tokens.length }, (_, i) => i);
-    for (let i = 0; i < numHints; i++) {
-      const idx = Math.floor(Math.random() * available.length);
-      hints.add(available[idx]);
-      available.splice(idx, 1);
-    }
-  }
-  return hints;
-}
+// ── Public interface (flat — matches previous API, page.tsx unchanged) ─────
 
 export interface GameState {
   targetWord: string;
@@ -47,16 +27,15 @@ export interface GameState {
   won: boolean;
   guessScores: number[];
   animatingRow: number | null;
-  finalScore: number;
-  attemptMultiplier: number;
+  scoreBreakdown: ScoreBreakdown | null;
   showModal: boolean;
-  language: 'en' | 'en-world' | 'es';
-  gameMode: 'daily' | 'practice';
+  language: Language;
+  gameMode: GameMode;
 }
 
 export interface GameActions {
-  setLanguage(lang: 'en' | 'en-world' | 'es'): void;
-  setGameMode(mode: 'daily' | 'practice'): void;
+  setLanguage(lang: Language): void;
+  setGameMode(mode: GameMode): void;
   setShowModal(show: boolean): void;
   addChar(ch: string): void;
   backspace(): void;
@@ -64,324 +43,254 @@ export interface GameActions {
   resetGame(): Promise<void>;
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+
+function getTodayUTC(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+const STORAGE_VERSION = 2;
+
+function storageKey(mode: GameMode, language: Language): string {
+  return mode === 'daily'
+    ? `anagramle-daily-${language}-${getTodayUTC()}`
+    : `anagramle-game-state-${language}`;
+}
+
+function generateHints(tokens: string[]): number[] {
+  if (tokens.length <= 7) return [];
+  const numHints = tokens.length - 7;
+  const available = Array.from({ length: tokens.length }, (_, i) => i);
+  const hints: number[] = [];
+  for (let i = 0; i < numHints; i++) {
+    const idx = Math.floor(Math.random() * available.length);
+    hints.push(available[idx]);
+    available.splice(idx, 1);
+  }
+  return hints;
+}
+
+// ── Hook ───────────────────────────────────────────────────────────────────
+
 export function useGameState(): { state: GameState; actions: GameActions } {
-  const [targetWord, setTargetWord] = useState('');
-  const [targetTokens, setTargetTokens] = useState<string[]>([]);
-  const [wordLength, setWordLength] = useState(0);
-  const [boardRow, setBoardRow] = useState(0);
-  const [startCol, setStartCol] = useState(0);
-  const [hintPositions, setHintPositions] = useState<Set<number>>(new Set());
-  const [guesses, setGuesses] = useState<string[]>(Array(MAX_ATTEMPTS).fill(''));
-  const [guessTokens, setGuessTokens] = useState<string[][]>(Array.from({ length: MAX_ATTEMPTS }, () => []));
-  const [currentGuess, setCurrentGuess] = useState('');
-  const [currentGuessTokens, setCurrentGuessTokens] = useState<string[]>([]);
-  const [currentRow, setCurrentRow] = useState(0);
-  const [gameOver, setGameOver] = useState(false);
-  const [won, setWon] = useState(false);
-  const [guessScores, setGuessScores] = useState<number[]>(Array(MAX_ATTEMPTS).fill(0));
-  const [animatingRow, setAnimatingRow] = useState<number | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [language, setLanguageState] = useState<'en' | 'en-world' | 'es'>('en');
-  const [gameMode, setGameModeState] = useState<'daily' | 'practice'>('daily');
-  const [finalScore, setFinalScore] = useState(0);
-  const [attemptMultiplier, setAttemptMultiplier] = useState(1);
+  const [gs, dispatch] = useReducer(gameReducer, INITIAL_STATE);
+
+  // Init guards live outside the reducer — they're not game state
   const [languageInitialized, setLanguageInitialized] = useState(false);
   const [gameModeInitialized, setGameModeInitialized] = useState(false);
-  const [loadedMode, setLoadedMode] = useState<'daily' | 'practice'>('daily');
 
-  // Refs for action functions so they stay stable across renders
-  const currentGuessRef = useRef('');
-  const currentGuessTokensRef = useRef<string[]>([]);
-  const wordLengthRef = useRef(0);
-  const languageRef = useRef<'en' | 'en-world' | 'es'>('en');
-  const gameOverRef = useRef(false);
-  const currentRowRef = useRef(0);
-  const guessesRef = useRef<string[]>(Array(MAX_ATTEMPTS).fill(''));
-  const guessTokensRef = useRef<string[][]>(Array.from({ length: MAX_ATTEMPTS }, () => []));
-  const guessScoresRef = useRef<number[]>(Array(MAX_ATTEMPTS).fill(0));
-  const boardRowRef = useRef(0);
-  const startColRef = useRef(0);
-  const targetWordRef = useRef('');
-  const gameModeRef = useRef<'daily' | 'practice'>('daily');
-
-  currentGuessRef.current = currentGuess;
-  currentGuessTokensRef.current = currentGuessTokens;
-  wordLengthRef.current = wordLength;
-  languageRef.current = language;
-  gameOverRef.current = gameOver;
-  currentRowRef.current = currentRow;
-  guessesRef.current = guesses;
-  guessTokensRef.current = guessTokens;
-  guessScoresRef.current = guessScores;
-  boardRowRef.current = boardRow;
-  startColRef.current = startCol;
-  targetWordRef.current = targetWord;
-  gameModeRef.current = gameMode;
-
-  // ── Language init ──────────────────────────────────────────────────
+  // ── Language init ────────────────────────────────────────────────────
   useEffect(() => {
-    if (typeof window !== 'undefined' && !languageInitialized) {
-      const saved = localStorage.getItem('anagramle-language');
-      if (saved && (saved === 'en' || saved === 'en-world' || saved === 'es')) {
-        setLanguageState(saved as 'en' | 'en-world' | 'es');
-      } else if (navigator.language.toLowerCase().startsWith('es')) {
-        setLanguageState('es');
-      }
-      setLanguageInitialized(true);
+    if (typeof window === 'undefined' || languageInitialized) return;
+    const saved = localStorage.getItem('anagramle-language');
+    if (saved === 'en' || saved === 'en-world' || saved === 'es') {
+      dispatch({ type: 'LANGUAGE_CHANGED', language: saved });
+    } else if (navigator.language.toLowerCase().startsWith('es')) {
+      dispatch({ type: 'LANGUAGE_CHANGED', language: 'es' });
     }
+    setLanguageInitialized(true);
   }, [languageInitialized]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && languageInitialized) {
-      localStorage.setItem('anagramle-language', language);
+      localStorage.setItem('anagramle-language', gs.config.language);
     }
-  }, [language, languageInitialized]);
+  }, [gs.config.language, languageInitialized]);
 
-  // ── Mode init ──────────────────────────────────────────────────────
+  // ── Mode init ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (typeof window !== 'undefined' && !gameModeInitialized) {
-      const saved = localStorage.getItem('anagramle-mode');
-      if (saved === 'daily' || saved === 'practice') setGameModeState(saved);
-      setGameModeInitialized(true);
+    if (typeof window === 'undefined' || gameModeInitialized) return;
+    const saved = localStorage.getItem('anagramle-mode');
+    if (saved === 'daily' || saved === 'practice') {
+      dispatch({ type: 'MODE_CHANGED', mode: saved });
     }
+    setGameModeInitialized(true);
   }, [gameModeInitialized]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && gameModeInitialized) {
-      localStorage.setItem('anagramle-mode', gameMode);
+      localStorage.setItem('anagramle-mode', gs.config.gameMode);
     }
-  }, [gameMode, gameModeInitialized]);
+  }, [gs.config.gameMode, gameModeInitialized]);
 
-  // ── Save game state ────────────────────────────────────────────────
+  // ── Save game state ──────────────────────────────────────────────────
   useEffect(() => {
-    if (typeof window !== 'undefined' && targetWord && gameModeInitialized) {
-      const key = loadedMode === 'daily'
-        ? `anagramle-daily-${language}-${getTodayUTC()}`
-        : 'anagramle-game-state';
-      const gameState = {
-        targetWord, targetTokens, wordLength, boardRow, startCol,
-        hintPositions: Array.from(hintPositions),
-        guesses, guessTokens, currentGuess, currentGuessTokens,
-        currentRow, gameOver, won, guessScores, language, finalScore, attemptMultiplier,
-      };
-      localStorage.setItem(key, JSON.stringify(gameState));
-    }
+    if (typeof window === 'undefined' || !gs.puzzle.targetWord || !gameModeInitialized) return;
+    const key = storageKey(gs.config.loadedMode, gs.config.loadedLanguage);
+    const { puzzle, board, config } = gs;
+    localStorage.setItem(key, JSON.stringify({
+      targetWord: puzzle.targetWord,
+      targetTokens: puzzle.targetTokens,
+      wordLength: puzzle.wordLength,
+      boardRow: puzzle.boardRow,
+      startCol: puzzle.startCol,
+      hintPositions: Array.from(puzzle.hintPositions),
+      guesses: board.guesses,
+      guessTokens: board.guessTokens,
+      currentGuess: board.currentGuess,
+      currentGuessTokens: board.currentGuessTokens,
+      currentRow: board.currentRow,
+      gameOver: board.gameOver,
+      won: board.won,
+      guessScores: board.guessScores,
+      scoreBreakdown: board.scoreBreakdown,
+      language: config.loadedLanguage,
+      v: STORAGE_VERSION,
+    }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetWord, targetTokens, wordLength, boardRow, startCol, hintPositions, guesses, guessTokens, currentGuess, currentGuessTokens, currentRow, gameOver, won, guessScores, language, finalScore, attemptMultiplier, loadedMode, gameModeInitialized]);
+  }, [gs.puzzle, gs.board, gs.config.loadedLanguage, gs.config.loadedMode, gameModeInitialized]);
 
-  // ── Load / fetch word ──────────────────────────────────────────────
+  // ── Load / fetch word ────────────────────────────────────────────────
   useEffect(() => {
     const loadOrFetch = async () => {
       if (typeof window === 'undefined' || !languageInitialized || !gameModeInitialized) return;
-      const key = gameMode === 'daily'
-        ? `anagramle-daily-${language}-${getTodayUTC()}`
-        : 'anagramle-game-state';
-      const savedState = localStorage.getItem(key);
-      if (savedState) {
+      const { language, gameMode } = gs.config;
+      const key = storageKey(gameMode, language);
+      const raw = localStorage.getItem(key);
+      if (raw) {
         try {
-          const s = JSON.parse(savedState);
-          if (s.language === language) {
-            setTargetWord(s.targetWord);
-            setTargetTokens(s.targetTokens);
-            setWordLength(s.wordLength);
-            setBoardRow(s.boardRow);
-            setStartCol(s.startCol);
-            setHintPositions(new Set(s.hintPositions));
-            setGuesses(s.guesses);
-            setGuessTokens(s.guessTokens);
-            setCurrentGuess(s.currentGuess);
-            setCurrentGuessTokens(s.currentGuessTokens);
-            setCurrentRow(s.currentRow);
-            setGameOver(s.gameOver);
-            setWon(s.won);
-            setGuessScores(s.guessScores);
-            setFinalScore(s.finalScore || 0);
-            setAttemptMultiplier(s.attemptMultiplier || 1);
-            setLoadedMode(gameMode);
-            if (s.gameOver) setShowModal(true);
+          const s = JSON.parse(raw);
+          if (s.v === STORAGE_VERSION && s.language === language) {
+            dispatch({
+              type: 'GAME_LOADED',
+              payload: {
+                targetWord: s.targetWord, targetTokens: s.targetTokens,
+                wordLength: s.wordLength, boardRow: s.boardRow, startCol: s.startCol,
+                hintPositions: s.hintPositions,
+                guesses: s.guesses, guessTokens: s.guessTokens,
+                currentGuess: s.currentGuess, currentGuessTokens: s.currentGuessTokens,
+                currentRow: s.currentRow, gameOver: s.gameOver, won: s.won,
+                guessScores: s.guessScores,
+                scoreBreakdown: s.scoreBreakdown ?? null,
+                mode: gameMode, language, showModal: s.gameOver ?? false,
+              },
+            });
             return;
           }
-        } catch {
-          // fall through to fetch
-        }
+        } catch { /* fall through */ }
       }
       try {
         const modeParam = gameMode === 'daily' ? '&mode=daily' : '';
         const response = await fetch(`/api/word?language=${language}${modeParam}`);
         const data = await response.json();
-        const newWord = decrypt(data.data, data.key);
+        const newWord = decryptWord(data.data, data.key);
         const tokens = tokenizeWord(newWord, language);
-        setTargetWord(newWord);
-        setTargetTokens(tokens);
-        setWordLength(data.length);
-        setBoardRow(data.boardRow);
-        setStartCol(data.startCol);
-        setHintPositions(generateHints(tokens));
-        setGuesses(Array(MAX_ATTEMPTS).fill(''));
-        setGuessTokens(Array.from({ length: MAX_ATTEMPTS }, () => []));
-        setCurrentGuess('');
-        setCurrentGuessTokens([]);
-        setCurrentRow(0);
-        setGameOver(false);
-        setWon(false);
-        setGuessScores(Array(MAX_ATTEMPTS).fill(0));
-        setFinalScore(0);
-        setAttemptMultiplier(1);
-        setAnimatingRow(null);
-        setShowModal(false);
-        setLoadedMode(gameMode);
+        dispatch({
+          type: 'GAME_LOADED',
+          payload: {
+            targetWord: newWord, targetTokens: tokens,
+            wordLength: data.length, boardRow: data.boardRow, startCol: data.startCol,
+            hintPositions: generateHints(tokens),
+            mode: gameMode, language,
+          },
+        });
       } catch (err) {
         console.error('Failed to fetch word:', err);
       }
     };
     loadOrFetch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, languageInitialized, gameMode, gameModeInitialized]);
+  }, [gs.config.language, gs.config.gameMode, languageInitialized, gameModeInitialized]);
 
-  // ── Actions (stable via useCallback + refs) ────────────────────────
+  // ── Stable actions ───────────────────────────────────────────────────
+
   const addChar = useCallback((ch: string) => {
-    if (gameOverRef.current) return;
-    const lang = languageRef.current;
-    const wl = wordLengthRef.current;
-    const newGuess = currentGuessRef.current + ch;
-    if (lang === 'es') {
-      const tokens = tokenizeWord(newGuess, lang);
-      if (tokens.length <= wl) {
-        setCurrentGuess(newGuess);
-        setCurrentGuessTokens(tokens);
-      }
-    } else {
-      if (newGuess.length <= wl) {
-        setCurrentGuess(newGuess);
-        setCurrentGuessTokens(newGuess.split(''));
-      }
-    }
+    dispatch({ type: 'CHAR_ADDED', char: ch });
   }, []);
 
   const backspace = useCallback(() => {
-    const lang = languageRef.current;
-    const tokens = currentGuessTokensRef.current;
-    if (currentGuessRef.current.length === 0) return;
-    if (lang === 'es' && tokens.length > 0) {
-      const last = tokens[tokens.length - 1];
-      setCurrentGuess(prev => prev.slice(0, -last.length));
-      setCurrentGuessTokens(prev => prev.slice(0, -1));
-    } else {
-      setCurrentGuess(prev => prev.slice(0, -1));
-      setCurrentGuessTokens(prev => prev.slice(0, -1));
-    }
+    dispatch({ type: 'BACKSPACE' });
   }, []);
 
   const submitGuess = useCallback(async (): Promise<{ ok: true } | { ok: false; reason: 'invalid' | 'network' }> => {
-    const tokens = currentGuessTokensRef.current;
-    const guess = currentGuessRef.current;
-    const lang = languageRef.current;
-    const wl = wordLengthRef.current;
-    const row = currentRowRef.current;
+    // Capture state snapshot before the async gap
+    const { currentGuess, currentGuessTokens, currentRow } = gs.board;
+    const { targetWord, wordLength, boardRow, startCol } = gs.puzzle;
+    const { language } = gs.config;
 
-    if (tokens.length !== wl) return { ok: false, reason: 'invalid' };
+    if (currentGuessTokens.length !== wordLength) return { ok: false, reason: 'invalid' };
 
     try {
-      const response = await fetch(`/api/validate?word=${encodeURIComponent(guess)}&language=${lang}`);
-      const data = await response.json();
+      const res = await fetch(`/api/validate?word=${encodeURIComponent(currentGuess)}&language=${language}`);
+      const data = await res.json();
       if (!data.valid) return { ok: false, reason: 'invalid' };
     } catch {
       return { ok: false, reason: 'network' };
     }
 
-    const newGuesses = [...guessesRef.current];
-    newGuesses[row] = guess;
-    setGuesses(newGuesses);
+    const score = calculateScore(currentGuess, boardRow, startCol, language);
+    const isWon = currentGuess === targetWord;
+    const isLastRow = currentRow === MAX_ATTEMPTS - 1;
 
-    const newGuessTokensList = [...guessTokensRef.current];
-    newGuessTokensList[row] = tokens;
-    setGuessTokens(newGuessTokensList);
+    dispatch({ type: 'GUESS_ACCEPTED', score });
 
-    const score = calculateScore(guess, boardRowRef.current, startColRef.current, lang);
-    const newScores = [...guessScoresRef.current];
-    newScores[row] = score;
-    setGuessScores(newScores);
-
-    setCurrentGuess('');
-    setCurrentGuessTokens([]);
-
-    if (guess === targetWordRef.current) {
-      setAnimatingRow(row);
-      const attemptNumber = row + 1;
-      const multiplier = 3.5 - attemptNumber * 0.5;
-      let finalScoreValue = Math.round(score * multiplier);
-      if (wl >= 7) finalScoreValue += 50;
-      setAttemptMultiplier(multiplier);
-      setFinalScore(finalScoreValue);
-      setCurrentRow(row + 1);
-      setTimeout(() => {
-        setWon(true);
-        setGameOver(true);
-        setAnimatingRow(null);
-        setShowModal(true);
-      }, 1500);
-    } else if (row === MAX_ATTEMPTS - 1) {
-      setCurrentRow(row + 1);
-      setTimeout(() => { setGameOver(true); setShowModal(true); }, 500);
-    } else {
-      setCurrentRow(row + 1);
+    if (isWon) {
+      setTimeout(() => dispatch({ type: 'WIN_REVEALED' }), 1500);
+    } else if (isLastRow) {
+      setTimeout(() => dispatch({ type: 'GAME_OVER_REVEALED' }), 500);
     }
 
     return { ok: true };
-  }, []);
+  // gs changes on every render — that's intentional; we capture a consistent snapshot
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gs]);
 
   const resetGame = useCallback(async () => {
-    const lang = languageRef.current;
-    const mode = gameModeRef.current;
-
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('anagramle-game-state');
-      if (mode === 'daily') {
-        setGameModeState('practice');
-        return;
-      }
+    const { gameMode, language } = gs.config;
+    localStorage.removeItem(storageKey('practice', language));
+    if (gameMode === 'daily') {
+      dispatch({ type: 'MODE_CHANGED', mode: 'practice' });
+      return;
     }
-
     try {
-      const response = await fetch(`/api/word?language=${lang}`);
-      const data = await response.json();
-      const newWord = decrypt(data.data, data.key);
-      const tokens = tokenizeWord(newWord, lang);
-      setTargetWord(newWord);
-      setTargetTokens(tokens);
-      setWordLength(data.length);
-      setBoardRow(data.boardRow);
-      setStartCol(data.startCol);
-      setHintPositions(generateHints(tokens));
-      setGuesses(Array(MAX_ATTEMPTS).fill(''));
-      setGuessTokens(Array.from({ length: MAX_ATTEMPTS }, () => []));
-      setCurrentGuess('');
-      setCurrentGuessTokens([]);
-      setCurrentRow(0);
-      setGameOver(false);
-      setWon(false);
-      setGuessScores(Array(MAX_ATTEMPTS).fill(0));
-      setAnimatingRow(null);
-      setShowModal(false);
-      setFinalScore(0);
-      setAttemptMultiplier(1);
-      setLoadedMode('practice');
+      const res = await fetch(`/api/word?language=${language}`);
+      const data = await res.json();
+      const newWord = decryptWord(data.data, data.key);
+      const tokens = tokenizeWord(newWord, language);
+      dispatch({
+        type: 'GAME_LOADED',
+        payload: {
+          targetWord: newWord, targetTokens: tokens,
+          wordLength: data.length, boardRow: data.boardRow, startCol: data.startCol,
+          hintPositions: generateHints(tokens),
+          mode: 'practice', language,
+        },
+      });
     } catch (err) {
       console.error('Failed to fetch word:', err);
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gs.config]);
+
+  // ── Flatten grouped state for public interface ───────────────────────
 
   const state: GameState = {
-    targetWord, targetTokens, wordLength, boardRow, startCol, hintPositions,
-    guesses, guessTokens, currentGuess, currentGuessTokens, currentRow,
-    gameOver, won, guessScores, animatingRow, finalScore, attemptMultiplier,
-    showModal, language, gameMode,
+    targetWord: gs.puzzle.targetWord,
+    targetTokens: gs.puzzle.targetTokens,
+    wordLength: gs.puzzle.wordLength,
+    boardRow: gs.puzzle.boardRow,
+    startCol: gs.puzzle.startCol,
+    hintPositions: gs.puzzle.hintPositions,
+    guesses: gs.board.guesses,
+    guessTokens: gs.board.guessTokens,
+    currentGuess: gs.board.currentGuess,
+    currentGuessTokens: gs.board.currentGuessTokens,
+    currentRow: gs.board.currentRow,
+    gameOver: gs.board.gameOver,
+    won: gs.board.won,
+    guessScores: gs.board.guessScores,
+    animatingRow: gs.board.animatingRow,
+    scoreBreakdown: gs.board.scoreBreakdown,
+    showModal: gs.showModal,
+    language: gs.config.language,
+    gameMode: gs.config.gameMode,
   };
 
   const actions: GameActions = {
-    setLanguage: setLanguageState,
-    setGameMode: setGameModeState,
-    setShowModal,
+    setLanguage: (lang) => dispatch({ type: 'LANGUAGE_CHANGED', language: lang }),
+    setGameMode: (mode) => dispatch({ type: 'MODE_CHANGED', mode }),
+    setShowModal: (show) => dispatch({ type: 'MODAL_SET', show }),
     addChar,
     backspace,
     submitGuess,

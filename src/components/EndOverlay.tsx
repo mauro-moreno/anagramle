@@ -2,12 +2,13 @@
 
 import { T } from '@/lib/theme';
 import { Translation } from '@/lib/translations';
+import { ScoreBreakdown } from '@/lib/game';
 
 export function EndOverlay({
-  won, targetWord, finalScore, targetScore, attempts, wordLength, attemptMultiplier, gameMode, onClose, onPlayAgain, t,
+  won, targetWord, breakdown, gameMode, onClose, onPlayAgain, t,
 }: {
-  won: boolean; targetWord: string; finalScore: number; targetScore: number;
-  attempts: number; wordLength: number; attemptMultiplier: number;
+  won: boolean; targetWord: string;
+  breakdown: ScoreBreakdown | null;
   gameMode: 'daily' | 'practice';
   onClose: () => void; onPlayAgain: () => void;
   t: Translation;
@@ -59,7 +60,7 @@ export function EndOverlay({
           color: won ? T.correct : T.fgSoft,
           textTransform: 'uppercase', marginBottom: 8,
         }}>
-          {won ? `${t.solved} in ${attempts}` : t.outOfGuesses}
+          {won && breakdown ? `${t.solved} in ${breakdown.attempt}` : t.outOfGuesses}
         </div>
         <h2 style={{
           margin: 0,
@@ -69,23 +70,23 @@ export function EndOverlay({
           letterSpacing: -1,
           color: T.fg,
         }}>{targetWord.toLowerCase()}</h2>
-        {won && (
+        {won && breakdown && (
           <div style={{
             display: 'flex', flexDirection: 'column', gap: 4,
             margin: '20px 0 6px', fontSize: 13, color: T.fgSoft,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 40 }}>
               <span>{t.baseScore}</span>
-              <span style={{ color: T.fg, fontWeight: 500 }}>{targetScore}</span>
+              <span style={{ color: T.fg, fontWeight: 500 }}>{breakdown.base}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 40 }}>
               <span>{t.attemptBonus}</span>
-              <span style={{ color: T.accent, fontWeight: 500 }}>×{attemptMultiplier}</span>
+              <span style={{ color: T.accent, fontWeight: 500 }}>×{breakdown.multiplier}</span>
             </div>
-            {wordLength >= 7 && (
+            {breakdown.longWordBonus > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 40 }}>
                 <span>{t.longWordBonus}</span>
-                <span style={{ color: T.correct, fontWeight: 500 }}>+50</span>
+                <span style={{ color: T.correct, fontWeight: 500 }}>+{breakdown.longWordBonus}</span>
               </div>
             )}
             <div style={{
@@ -96,7 +97,7 @@ export function EndOverlay({
               <span style={{
                 fontFamily: 'var(--font-instrument-serif), Georgia, serif',
                 fontSize: 22, lineHeight: 1, color: T.correct, fontWeight: 600,
-              }}>{finalScore}</span>
+              }}>{breakdown.total}</span>
             </div>
           </div>
         )}

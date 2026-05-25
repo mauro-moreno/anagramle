@@ -1,13 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getRandomWord, getTokenLength, getDailyWordWithParams } from '@/lib/dictionary';
-
-function encrypt(text: string, key: string): string {
-  let result = '';
-  for (let i = 0; i < text.length; i++) {
-    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return Buffer.from(result).toString('base64');
-}
+import { encryptWord, generateKey } from '@/lib/cipher';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -34,8 +27,8 @@ export async function GET(request: Request) {
   }
 
   const tokenLength = getTokenLength(word, language as 'en' | 'en-world' | 'es');
-  const encryptionKey = Math.random().toString(36).substring(2, 15);
-  const encryptedWord = encrypt(word, encryptionKey);
+  const encryptionKey = generateKey();
+  const encryptedWord = encryptWord(word, encryptionKey);
 
   return NextResponse.json({
     data: encryptedWord,
