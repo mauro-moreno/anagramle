@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getRandomWord, getTokenLength } from '@/lib/dictionary';
+import { getRandomWord, getTokenLength, getDailyWordWithParams } from '@/lib/dictionary';
 
-// Simple XOR encryption/decryption
 function encrypt(text: string, key: string): string {
   let result = '';
   for (let i = 0; i < text.length; i++) {
@@ -13,18 +12,29 @@ function encrypt(text: string, key: string): string {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const language = searchParams.get('language') || 'en';
+  const mode = searchParams.get('mode') || 'practice';
 
-  const word = getRandomWord(language as 'en' | 'en-world' | 'es');
+  let word: string;
+  let boardRow: number;
+  let startCol: number;
+  let dateStr: string | undefined;
+
+  if (mode === 'daily') {
+    dateStr = new Date().toISOString().split('T')[0];
+    const params = getDailyWordWithParams(language as 'en' | 'en-world' | 'es', dateStr);
+    word = params.word;
+    boardRow = params.boardRow;
+    startCol = params.startCol;
+  } else {
+    word = getRandomWord(language as 'en' | 'en-world' | 'es');
+    const tokenLength = getTokenLength(word, language as 'en' | 'en-world' | 'es');
+    boardRow = Math.floor(Math.random() * 15);
+    const maxStartCol = Math.max(0, 15 - tokenLength);
+    startCol = Math.floor(Math.random() * (maxStartCol + 1));
+  }
+
   const tokenLength = getTokenLength(word, language as 'en' | 'en-world' | 'es');
-
-  const boardRow = Math.floor(Math.random() * 15);
-  const maxStartCol = Math.max(0, 15 - tokenLength);
-  const startCol = Math.floor(Math.random() * (maxStartCol + 1));
-
-  // Generate a random encryption key for this session
   const encryptionKey = Math.random().toString(36).substring(2, 15);
-
-  // Encrypt the word
   const encryptedWord = encrypt(word, encryptionKey);
 
   return NextResponse.json({
@@ -33,5 +43,6 @@ export async function GET(request: Request) {
     boardRow,
     startCol,
     length: tokenLength,
+    ...(dateStr ? { date: dateStr } : {}),
   });
 }

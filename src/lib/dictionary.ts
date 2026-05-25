@@ -1,24 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-
-// Tokenize Spanish words to handle digraphs (CH, LL, RR)
-function tokenizeSpanishWord(word: string): string[] {
-  const tokens: string[] = [];
-  let i = 0;
-  while (i < word.length) {
-    if (i < word.length - 1) {
-      const twoChar = word.substring(i, i + 2).toUpperCase();
-      if (twoChar === 'CH' || twoChar === 'LL' || twoChar === 'RR') {
-        tokens.push(twoChar);
-        i += 2;
-        continue;
-      }
-    }
-    tokens.push(word[i].toUpperCase());
-    i++;
-  }
-  return tokens;
-}
+import { tokenizeSpanishWord, tokenizeWord } from './tokenize';
 
 interface DictionaryCache {
   words: Set<string>;
@@ -100,4 +82,39 @@ export function getTokenLength(word: string, language: 'en' | 'en-world' | 'es')
     return tokenizeSpanishWord(word).length;
   }
   return word.length;
+}
+
+function mulberry32(seed: number): () => number {
+  return () => {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function dateSeed(language: string, dateStr: string): number {
+  const str = `${language}:${dateStr}`;
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(h, 33) ^ str.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+export function getDailyWordWithParams(
+  language: 'en' | 'en-world' | 'es',
+  dateStr: string
+): { word: string; boardRow: number; startCol: number } {
+  if (!dictionaries[language].loaded) loadDictionary(language);
+  const wordsByLength = dictionaries[language].wordsByLength;
+  const lengths = Array.from(wordsByLength.keys()).sort((a, b) => a - b);
+  const rand = mulberry32(dateSeed(language, dateStr));
+  const randomLength = lengths[Math.floor(rand() * lengths.length)];
+  const wordsOfLength = wordsByLength.get(randomLength)!;
+  const word = wordsOfLength[Math.floor(rand() * wordsOfLength.length)];
+  const boardRow = Math.floor(rand() * 15);
+  const maxStartCol = Math.max(0, 15 - randomLength);
+  const startCol = Math.floor(rand() * (maxStartCol + 1));
+  return { word, boardRow, startCol };
 }
