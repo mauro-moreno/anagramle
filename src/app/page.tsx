@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const MAX_ATTEMPTS = 6;
 
-// Decrypt function for API response
 function decrypt(encryptedBase64: string, key: string): string {
   const encrypted = Buffer.from(encryptedBase64, 'base64').toString();
   let result = '';
@@ -22,7 +20,7 @@ const SCRABBLE_POINTS_EN: Record<string, number> = {
   F: 4, H: 4, V: 4, W: 4, Y: 4,
   K: 5,
   J: 8, X: 8,
-  Q: 10, Z: 10
+  Q: 10, Z: 10,
 };
 
 const SCRABBLE_POINTS_ES: Record<string, number> = {
@@ -32,15 +30,13 @@ const SCRABBLE_POINTS_ES: Record<string, number> = {
   H: 4, F: 4, V: 4, Y: 4,
   Q: 5, CH: 5,
   J: 8, Ñ: 8, X: 8, LL: 8, RR: 8,
-  Z: 10
+  Z: 10,
 };
 
-// Tokenize Spanish words to handle digraphs (CH, LL, RR)
 function tokenizeSpanishWord(word: string): string[] {
   const tokens: string[] = [];
   let i = 0;
   while (i < word.length) {
-    // Check for two-letter combinations
     if (i < word.length - 1) {
       const twoChar = word.substring(i, i + 2);
       if (twoChar === 'CH' || twoChar === 'LL' || twoChar === 'RR') {
@@ -49,7 +45,6 @@ function tokenizeSpanishWord(word: string): string[] {
         continue;
       }
     }
-    // Single character
     tokens.push(word[i]);
     i++;
   }
@@ -61,8 +56,9 @@ const TRANSLATIONS = {
     title: 'ANAGRAMLE',
     target: 'TARGET',
     guess: 'GUESS',
-    victory: '🎉 Victory!',
-    gameOver: '😔 Game Over',
+    thisGuess: 'This guess',
+    victory: 'Victory!',
+    gameOver: 'Game Over',
     youGuessed: 'You guessed the word!',
     theWordWas: 'The word was:',
     yourScore: 'Your',
@@ -91,20 +87,23 @@ const TRANSLATIONS = {
     doubleLetterScore: 'Double Letter Score',
     wordNotInDictionary: 'Word not in dictionary',
     validationFailed: 'Validation failed',
-    multipliers: {
-      TWS: '3W',
-      DWS: '2W',
-      TLS: '3L',
-      DLS: '2L',
-    },
+    multipliers: { TWS: '3W', DWS: '2W', TLS: '3L', DLS: '2L' },
+    solved: 'Solved',
+    outOfGuesses: 'Out of guesses',
+    leftLabel: 'left',
+    solvedLabel: 'solved',
+    finishedLabel: 'finished',
+    best: 'best',
+    yourBest: 'your best · target',
     quickGuide: 'Guess the word in 6 tries with color-coded feedback (green = correct position, yellow = wrong position). Score points like Scrabble with letter values and board multipliers.',
   },
   es: {
     title: 'ANAGRAMLE',
     target: 'OBJETIVO',
     guess: 'INTENTO',
-    victory: '🎉 ¡Felicitaciones!',
-    gameOver: '😔 Fin del Juego',
+    thisGuess: 'Este intento',
+    victory: '¡Felicitaciones!',
+    gameOver: 'Fin del Juego',
     youGuessed: '¡Adivinaste la palabra!',
     theWordWas: 'La palabra era:',
     yourScore: 'Tu',
@@ -133,118 +132,261 @@ const TRANSLATIONS = {
     doubleLetterScore: 'Doble Letra',
     wordNotInDictionary: 'La palabra no está en el diccionario',
     validationFailed: 'Validación fallida',
-    multipliers: {
-      TWS: '3P',
-      DWS: '2P',
-      TLS: '3L',
-      DLS: '2L',
-    },
+    multipliers: { TWS: '3P', DWS: '2P', TLS: '3L', DLS: '2L' },
+    solved: 'Resuelto',
+    outOfGuesses: 'Sin intentos',
+    leftLabel: 'restantes',
+    solvedLabel: 'resuelto',
+    finishedLabel: 'terminado',
+    best: 'mejor',
+    yourBest: 'tu mejor · objetivo',
     quickGuide: 'Adivina la palabra en 6 intentos con feedback por color (verde = posición correcta, amarillo = posición incorrecta). Suma puntos como en Scrabble con valores de letras y multiplicadores del tablero.',
   },
 };
 
 type MultiplierType = 'TWS' | 'DWS' | 'TLS' | 'DLS' | null;
 
-// Scrabble board grid (15x15) - each row represents multipliers
 const SCRABBLE_BOARD: MultiplierType[][] = [
-  ['TWS', null, null, 'DLS', null, null, null, 'TWS', null, null, null, 'DLS', null, null, 'TWS'], // Row 1
-  [null, 'DWS', null, null, null, 'TLS', null, null, null, 'TLS', null, null, null, 'DWS', null],   // Row 2
-  [null, null, 'DWS', null, null, null, 'DLS', null, 'DLS', null, null, null, 'DWS', null, null],   // Row 3
-  ['DLS', null, null, 'DWS', null, null, null, 'DLS', null, null, null, 'DWS', null, null, 'DLS'],  // Row 4
-  [null, null, null, null, 'DWS', null, null, null, null, null, 'DWS', null, null, null, null],     // Row 5
-  [null, 'TLS', null, null, null, 'TLS', null, null, null, 'TLS', null, null, null, 'TLS', null],   // Row 6
-  [null, null, 'DLS', null, null, null, 'DLS', null, 'DLS', null, null, null, 'DLS', null, null],   // Row 7
-  ['TWS', null, null, 'DLS', null, null, null, 'DWS', null, null, null, 'DLS', null, null, 'TWS'],  // Row 8 (center)
-  [null, null, 'DLS', null, null, null, 'DLS', null, 'DLS', null, null, null, 'DLS', null, null],   // Row 9
-  [null, 'TLS', null, null, null, 'TLS', null, null, null, 'TLS', null, null, null, 'TLS', null],   // Row 10
-  [null, null, null, null, 'DWS', null, null, null, null, null, 'DWS', null, null, null, null],     // Row 11
-  ['DLS', null, null, 'DWS', null, null, null, 'DLS', null, null, null, 'DWS', null, null, 'DLS'],  // Row 12
-  [null, null, 'DWS', null, null, null, 'DLS', null, 'DLS', null, null, null, 'DWS', null, null],   // Row 13
-  [null, 'DWS', null, null, null, 'TLS', null, null, null, 'TLS', null, null, null, 'DWS', null],   // Row 14
-  ['TWS', null, null, 'DLS', null, null, null, 'TWS', null, null, null, 'DLS', null, null, 'TWS'],  // Row 15
+  ['TWS', null, null, 'DLS', null, null, null, 'TWS', null, null, null, 'DLS', null, null, 'TWS'],
+  [null, 'DWS', null, null, null, 'TLS', null, null, null, 'TLS', null, null, null, 'DWS', null],
+  [null, null, 'DWS', null, null, null, 'DLS', null, 'DLS', null, null, null, 'DWS', null, null],
+  ['DLS', null, null, 'DWS', null, null, null, 'DLS', null, null, null, 'DWS', null, null, 'DLS'],
+  [null, null, null, null, 'DWS', null, null, null, null, null, 'DWS', null, null, null, null],
+  [null, 'TLS', null, null, null, 'TLS', null, null, null, 'TLS', null, null, null, 'TLS', null],
+  [null, null, 'DLS', null, null, null, 'DLS', null, 'DLS', null, null, null, 'DLS', null, null],
+  ['TWS', null, null, 'DLS', null, null, null, 'DWS', null, null, null, 'DLS', null, null, 'TWS'],
+  [null, null, 'DLS', null, null, null, 'DLS', null, 'DLS', null, null, null, 'DLS', null, null],
+  [null, 'TLS', null, null, null, 'TLS', null, null, null, 'TLS', null, null, null, 'TLS', null],
+  [null, null, null, null, 'DWS', null, null, null, null, null, 'DWS', null, null, null, null],
+  ['DLS', null, null, 'DWS', null, null, null, 'DLS', null, null, null, 'DWS', null, null, 'DLS'],
+  [null, null, 'DWS', null, null, null, 'DLS', null, 'DLS', null, null, null, 'DWS', null, null],
+  [null, 'DWS', null, null, null, 'TLS', null, null, null, 'TLS', null, null, null, 'DWS', null],
+  ['TWS', null, null, 'DLS', null, null, null, 'TWS', null, null, null, 'DLS', null, null, 'TWS'],
 ];
 
-// Get multipliers for a word at a specific row and starting column position
 const getMultipliers = (wordLength: number, boardRow: number, startCol: number = 0): MultiplierType[] => {
   const multipliers: MultiplierType[] = [];
   const row = SCRABBLE_BOARD[boardRow];
-
   for (let i = 0; i < wordLength; i++) {
     const col = startCol + i;
-    if (col < row.length) {
-      multipliers.push(row[col]);
-    } else {
-      multipliers.push(null);
-    }
+    multipliers.push(col < row.length ? row[col] : null);
   }
-
   return multipliers;
+};
+
+// ── Design theme (ink / dark) ─────────────────────────────────────────
+const T = {
+  bg: '#0F0F17',
+  bgAlt: '#161622',
+  fg: '#F4EFE2',
+  fgSoft: '#9B9685',
+  accent: '#FFB17A',
+  correct: '#6FA75B',
+  present: '#E0A94A',
+  absent: '#3B3B45',
+  tileEmpty: '#191923',
+  tileBorder: '#2B2B36',
+  tileShadow: 'rgba(0,0,0,0.5)',
+  multTWS: '#E26A4A',
+  multDWS: '#E89B72',
+  multTLS: '#5C95B5',
+  multDLS: '#85B5CC',
+  kbdBg: '#23232F',
+  kbdAbsent: '#1B1B23',
+  chipBg: '#23232F',
+  overlay: 'rgba(0,0,0,0.65)',
+};
+
+const MULT_LABEL: Record<string, string> = { TWS: '3W', DWS: '2W', TLS: '3L', DLS: '2L' };
+const MULT_COLOR: Record<string, string> = {
+  TWS: T.multTWS, DWS: T.multDWS, TLS: T.multTLS, DLS: T.multDLS,
 };
 
 type LetterState = 'correct' | 'present' | 'absent' | 'empty';
 
-interface TileProps {
-  letter: string;
-  state: LetterState;
-  showScore?: boolean;
-  multiplier?: MultiplierType;
-  isHint?: boolean;
-  hintLetter?: string;
-  isAnimating?: boolean;
-  tileRef?: React.RefObject<HTMLDivElement | null>;
-  animationDelay?: number;
-  multiplierLabels?: Record<string, string>;
-  scrabblePoints?: Record<string, number>;
-}
-
-const Tile = ({ letter, state, showScore = false, multiplier, isHint = false, hintLetter, isAnimating = false, tileRef, animationDelay = 0, multiplierLabels, scrabblePoints }: TileProps) => {
-  const stateColors = {
-    correct: 'bg-[#538d4e] border-[#538d4e]',
-    present: 'bg-[#b59f3b] border-[#b59f3b]',
-    absent: 'bg-[#2a2a2a] border-[#4a4a4a]',
-    empty: 'bg-[#2a2a2a] border-[#4a4a4a]',
-  };
-
-  const multiplierColors = {
-    TWS: 'bg-[#d64545]',
-    DWS: 'bg-[#e07575]',
-    TLS: 'bg-[#3d8ac7]',
-    DLS: 'bg-[#5fa3d4]',
-  };
-
-  const bgColor = state !== 'empty' ? stateColors[state] : (multiplier ? multiplierColors[multiplier] : stateColors.empty);
-  const displayLetter = letter || (isHint ? hintLetter : '') || '';
-
-  const points = displayLetter && scrabblePoints ? scrabblePoints[displayLetter] || 0 : 0;
-
-  const textSize = displayLetter && displayLetter.length > 1 ? 'text-lg sm:text-2xl' : 'text-2xl sm:text-3xl';
+// ── Tile ──────────────────────────────────────────────────────────────
+function Tile({
+  ch, state, multiplier, isCurrent, isHint, size, scrabblePoints,
+}: {
+  ch: string; state: LetterState; multiplier?: MultiplierType;
+  isCurrent?: boolean; isHint?: boolean; size: number; scrabblePoints: Record<string, number>;
+}) {
+  const radius = Math.round(size * 0.18);
+  const showChips = size >= 26;
+  const multAccent = multiplier ? MULT_COLOR[multiplier] : undefined;
+  const showMultChip = state === 'empty' && !!multAccent;
+  const stateBg = state === 'correct' ? T.correct
+    : state === 'present' ? T.present
+    : state === 'absent' ? T.absent
+    : T.tileEmpty;
+  const stateFg = state === 'empty' ? T.fg : '#fff';
 
   return (
-    <div
-      ref={tileRef}
-      className={`w-[50px] h-[50px] sm:w-[62px] sm:h-[62px] border-2 flex items-center justify-center text-white font-bold ${textSize} uppercase relative ${bgColor} ${
-        displayLetter ? 'scale-105' : ''
-      } ${!displayLetter && multiplier ? 'border-opacity-50' : ''} ${isHint && !letter ? 'opacity-60' : ''} ${
-        isAnimating ? 'animate-pulse' : 'transition-all duration-200'
-      }`}
-      style={isAnimating ? { animationDelay: `${animationDelay}ms` } : undefined}
-    >
-      {displayLetter}
-      {showScore && displayLetter && (
-        <span className="absolute bottom-0.5 right-1 text-[9px] sm:text-[10px] font-bold opacity-90">
-          {points}
-        </span>
+    <div style={{
+      position: 'relative',
+      width: size, height: size,
+      borderRadius: radius,
+      background: stateBg,
+      color: stateFg,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+      fontWeight: 400,
+      fontSize: Math.max(11, size * 0.55),
+      lineHeight: 1,
+      transition: 'background 240ms ease, color 240ms ease',
+      boxShadow: state === 'empty'
+        ? showMultChip
+          ? `inset 0 0 0 1.5px ${multAccent}40, 0 1px 0 ${T.tileShadow}`
+          : `inset 0 0 0 1px ${T.tileBorder}, 0 1px 0 ${T.tileShadow}`
+        : `0 1px 0 ${T.tileShadow}, 0 2px 4px ${T.tileShadow}`,
+      outline: isCurrent ? `2px solid ${T.accent}` : 'none',
+      outlineOffset: 2,
+      flexShrink: 0,
+    }}>
+      {showMultChip && showChips && multiplier && (
+        <div style={{
+          position: 'absolute',
+          top: Math.max(2, size * 0.06), left: Math.max(2, size * 0.06),
+          padding: '1px 5px',
+          borderRadius: 999,
+          background: multAccent,
+          color: '#fff',
+          fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+          fontWeight: 600,
+          fontSize: Math.max(8, size * 0.16),
+          lineHeight: 1.1,
+          letterSpacing: 0.2,
+        }}>{MULT_LABEL[multiplier]}</div>
       )}
-      {!displayLetter && multiplier && multiplierLabels && (
-        <span className="text-[9px] sm:text-[11px] font-bold opacity-70">
-          {multiplierLabels[multiplier]}
-        </span>
+      {showMultChip && !showChips && (
+        <div style={{
+          position: 'absolute', top: 2, left: 2,
+          width: 6, height: 6, borderRadius: 999,
+          background: multAccent,
+        }} />
+      )}
+      <span style={{ opacity: isHint ? 0.45 : 1, fontStyle: isHint ? 'italic' : 'normal' }}>
+        {ch}
+      </span>
+      {ch && showChips && (
+        <span style={{
+          position: 'absolute',
+          right: Math.max(4, size * 0.08), bottom: Math.max(2, size * 0.04),
+          fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+          fontWeight: 500, fontSize: Math.max(8, size * 0.16),
+          opacity: state === 'empty' ? 0.55 : 0.85,
+          color: state === 'empty' ? T.fg : '#fff',
+        }}>{scrabblePoints[ch] || ''}</span>
       )}
     </div>
   );
-};
+}
 
+// ── End overlay (bottom sheet) ────────────────────────────────────────
+function EndOverlay({
+  won, targetWord, finalScore, targetScore, attempts, onClose, onPlayAgain, t,
+}: {
+  won: boolean; targetWord: string; finalScore: number; targetScore: number;
+  attempts: number; onClose: () => void; onPlayAgain: () => void;
+  t: typeof TRANSLATIONS['en'];
+}) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: T.overlay,
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      backdropFilter: 'blur(6px)',
+      WebkitBackdropFilter: 'blur(6px)',
+    }} onClick={onClose}>
+      {won && (
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+          {Array.from({ length: 30 }).map((_, i) => {
+            const colors = [T.accent, T.correct, T.present, T.multTLS];
+            return (
+              <div key={i} style={{
+                position: 'absolute',
+                left: `${(i * 37) % 100}%`,
+                top: -10,
+                width: 8, height: 12,
+                background: colors[i % colors.length],
+                borderRadius: 2,
+                animation: `confetti ${1800 + (i * 41) % 1200}ms linear ${(i * 73) % 600}ms forwards`,
+              }} />
+            );
+          })}
+        </div>
+      )}
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%',
+        background: T.bgAlt,
+        borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        padding: '28px 24px 48px',
+        animation: 'sheetUp 360ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+        boxShadow: `0 -8px 30px ${T.tileShadow}`,
+        textAlign: 'center',
+        position: 'relative',
+      }}>
+        <div style={{
+          width: 36, height: 4, borderRadius: 4,
+          background: T.tileBorder,
+          margin: '0 auto 18px',
+        }} />
+        <div style={{
+          fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+          fontSize: 11, letterSpacing: 2,
+          color: won ? T.correct : T.fgSoft,
+          textTransform: 'uppercase', marginBottom: 8,
+        }}>
+          {won ? `${t.solved} in ${attempts}` : t.outOfGuesses}
+        </div>
+        <h2 style={{
+          margin: 0,
+          fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+          fontSize: 44, lineHeight: 1,
+          fontStyle: 'italic',
+          letterSpacing: -1,
+          color: T.fg,
+        }}>{targetWord.toLowerCase()}</h2>
+        <div style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'baseline',
+          gap: 14, margin: '20px 0 6px',
+        }}>
+          <div style={{
+            fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+            fontSize: 48, lineHeight: 1, color: T.fg,
+          }}>{finalScore}</div>
+          <div style={{
+            fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+            fontSize: 12, color: T.fgSoft,
+          }}>/ {targetScore}</div>
+        </div>
+        <div style={{
+          fontSize: 13, color: T.fgSoft, marginBottom: 22,
+        }}>{t.yourBest}</div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button onClick={onPlayAgain} style={{
+            flex: 1, maxWidth: 200,
+            height: 50, borderRadius: 14,
+            background: T.fg, color: T.bg,
+            border: 'none',
+            fontWeight: 600, fontSize: 15,
+            cursor: 'pointer',
+          }}>{t.playAgain}</button>
+          <button onClick={onClose} style={{
+            flex: 1, maxWidth: 200,
+            height: 50, borderRadius: 14,
+            background: 'transparent', color: T.fg,
+            border: `1.5px solid ${T.tileBorder}`,
+            fontWeight: 600, fontSize: 15,
+            cursor: 'pointer',
+          }}>Share</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
+// ── Main component ────────────────────────────────────────────────────
 export default function Home() {
   const [targetWord, setTargetWord] = useState('');
   const [targetTokens, setTargetTokens] = useState<string[]>([]);
@@ -270,74 +412,81 @@ export default function Home() {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [attemptMultiplier, setAttemptMultiplier] = useState(1);
-  const currentTileRef = useRef<HTMLDivElement>(null);
+  const [scoreFlash, setScoreFlash] = useState(false);
+
+  // Grid auto-sizing
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+  const [tileSize, setTileSize] = useState(52);
+
   const languageDropdownRef = useRef<HTMLDivElement>(null);
-  const mainContainerRef = useRef<HTMLElement>(null);
+  const currentGuessRef = useRef('');
+  currentGuessRef.current = currentGuess;
 
-  const t = TRANSLATIONS[language === 'en-world' ? 'en' : language];
+  const tr = TRANSLATIONS[language === 'en-world' ? 'en' : language];
 
-  // Initialize language from localStorage or browser on client side only
+  // ── Auto-size tiles ──────────────────────────────────────────────
+  const measureTiles = useCallback(() => {
+    if (!gridContainerRef.current || !wordLength) return;
+    const w = gridContainerRef.current.getBoundingClientRect().width;
+    if (w <= 0) return;
+    const gap = wordLength <= 7 ? 6 : wordLength <= 10 ? 5 : 3;
+    const px = Math.floor((w - gap * (wordLength - 1)) / wordLength);
+    setTileSize(Math.min(64, Math.max(16, px)));
+  }, [wordLength]);
+
+  useEffect(() => {
+    measureTiles();
+    const ro = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(measureTiles)
+      : null;
+    if (ro && gridContainerRef.current) ro.observe(gridContainerRef.current);
+    window.addEventListener('resize', measureTiles);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measureTiles);
+    };
+  }, [measureTiles]);
+
+  // ── Language init ──────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window !== 'undefined' && !languageInitialized) {
       const saved = localStorage.getItem('anagramle-language');
       if (saved && (saved === 'en' || saved === 'en-world' || saved === 'es')) {
         setLanguage(saved as 'en' | 'en-world' | 'es');
-      } else {
-        // Detect browser language
-        const browserLang = navigator.language.toLowerCase();
-        if (browserLang.startsWith('es')) {
-          setLanguage('es');
-        }
+      } else if (navigator.language.toLowerCase().startsWith('es')) {
+        setLanguage('es');
       }
       setLanguageInitialized(true);
     }
   }, [languageInitialized]);
 
-  // Save language preference
   useEffect(() => {
     if (typeof window !== 'undefined' && languageInitialized) {
       localStorage.setItem('anagramle-language', language);
     }
   }, [language, languageInitialized]);
 
-  // Save game state to localStorage
+  // ── Save game state ────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window !== 'undefined' && targetWord) {
       const gameState = {
-        targetWord,
-        targetTokens,
-        wordLength,
-        boardRow,
-        startCol,
+        targetWord, targetTokens, wordLength, boardRow, startCol,
         hintPositions: Array.from(hintPositions),
-        guesses,
-        guessTokens,
-        currentGuess,
-        currentGuessTokens,
-        currentRow,
-        gameOver,
-        won,
-        guessScores,
-        language,
-        finalScore,
-        attemptMultiplier,
+        guesses, guessTokens, currentGuess, currentGuessTokens,
+        currentRow, gameOver, won, guessScores, language, finalScore, attemptMultiplier,
       };
       localStorage.setItem('anagramle-game-state', JSON.stringify(gameState));
     }
   }, [targetWord, targetTokens, wordLength, boardRow, startCol, hintPositions, guesses, guessTokens, currentGuess, currentGuessTokens, currentRow, gameOver, won, guessScores, language, finalScore, attemptMultiplier]);
 
-  // Load game state or fetch new word (only after language is initialized)
+  // ── Load / fetch word ──────────────────────────────────────────────
   useEffect(() => {
-    const loadOrFetchWord = async () => {
+    const loadOrFetch = async () => {
       if (typeof window === 'undefined' || !languageInitialized) return;
-
-      // Try to load saved game state
       const savedState = localStorage.getItem('anagramle-game-state');
       if (savedState) {
         try {
           const state = JSON.parse(savedState);
-
-          // Only restore if the language matches
           if (state.language === language) {
             setTargetWord(state.targetWord);
             setTargetTokens(state.targetTokens);
@@ -355,45 +504,34 @@ export default function Home() {
             setGuessScores(state.guessScores);
             setFinalScore(state.finalScore || 0);
             setAttemptMultiplier(state.attemptMultiplier || 1);
-            // Show modal if game was over
-            if (state.gameOver) {
-              setShowModal(true);
-            }
-            return; // Don't fetch a new word
+            if (state.gameOver) setShowModal(true);
+            return;
           }
-        } catch (error) {
-          console.error('Failed to load saved game state:', error);
+        } catch {
+          // fall through to fetch
         }
       }
-
-      // Fetch new word if no saved state or language changed
       try {
         const response = await fetch(`/api/word?language=${language}`);
         const data = await response.json();
         const newWord = decrypt(data.data, data.key);
         const tokens = language === 'es' ? tokenizeSpanishWord(newWord) : newWord.split('');
-
         setTargetWord(newWord);
         setTargetTokens(tokens);
         setWordLength(data.length);
         setBoardRow(data.boardRow);
         setStartCol(data.startCol);
-
-        // Generate hint positions - max 7 tokens to guess
         const hints = new Set<number>();
         if (tokens.length > 7) {
           const numHints = tokens.length - 7;
-          const availablePositions = Array.from({ length: tokens.length }, (_, i) => i);
-
+          const available = Array.from({ length: tokens.length }, (_, i) => i);
           for (let i = 0; i < numHints; i++) {
-            const randomIndex = Math.floor(Math.random() * availablePositions.length);
-            hints.add(availablePositions[randomIndex]);
-            availablePositions.splice(randomIndex, 1);
+            const idx = Math.floor(Math.random() * available.length);
+            hints.add(available[idx]);
+            available.splice(idx, 1);
           }
         }
         setHintPositions(hints);
-
-        // Reset game state for new word
         setGuesses(Array(MAX_ATTEMPTS).fill(''));
         setGuessTokens(Array.from({ length: MAX_ATTEMPTS }, () => []));
         setCurrentGuess('');
@@ -402,203 +540,150 @@ export default function Home() {
         setGameOver(false);
         setWon(false);
         setGuessScores(Array(MAX_ATTEMPTS).fill(0));
-      } catch (error) {
-        console.error('Failed to fetch word:', error);
+      } catch (err) {
+        console.error('Failed to fetch word:', err);
       }
     };
-
-    loadOrFetchWord();
+    loadOrFetch();
   }, [language, languageInitialized]);
 
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (gameOver) return;
+  // ── Helpers ────────────────────────────────────────────────────────
+  const getScrabblePoints = () => language === 'es' ? SCRABBLE_POINTS_ES : SCRABBLE_POINTS_EN;
 
-      // Close the language dropdown when typing
-      if (showLanguageDropdown) {
-        setShowLanguageDropdown(false);
-      }
+  const tokenizeWord = (word: string) =>
+    language === 'es' ? tokenizeSpanishWord(word) : word.split('');
 
-      if (e.key === 'Enter') {
-        handleSubmit();
-      } else if (e.key === 'Backspace') {
-        handleBackspace();
-      } else if (/^[a-zA-ZñÑ]$/.test(e.key)) {
-        const newChar = e.key.toUpperCase();
-        const newGuess = currentGuess + newChar;
-
-        // For Spanish, auto-combine digraphs
-        if (language === 'es') {
-          const tokens = tokenizeSpanishWord(newGuess);
-          if (tokens.length <= wordLength) {
-            setCurrentGuess(newGuess);
-            setCurrentGuessTokens(tokens);
-          }
-        } else {
-          if (newGuess.length <= wordLength) {
-            setCurrentGuess(newGuess);
-            setCurrentGuessTokens(newGuess.split(''));
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentGuess, gameOver, currentRow, targetWord, wordLength, language, showLanguageDropdown]);
-
-  useEffect(() => {
-    if (currentTileRef.current) {
-      currentTileRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
-      });
-    }
-  }, [currentGuess]);
-
-  useEffect(() => {
-    const handleModalKeys = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (showHelp) {
-          setShowHelp(false);
-        } else if (showModal) {
-          setShowModal(false);
-          resetGame();
-        }
-      } else if (e.key === 'Enter' && showModal) {
-        setShowModal(false);
-        resetGame();
-      }
-    };
-
-    window.addEventListener('keydown', handleModalKeys);
-    return () => window.removeEventListener('keydown', handleModalKeys);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showHelp, showModal]);
-
-  // Close language dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (languageDropdownRef.current && !languageDropdownRef.current.contains(e.target as Node)) {
-        setShowLanguageDropdown(false);
-      }
-    };
-
-    if (showLanguageDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showLanguageDropdown]);
-
-  useEffect(() => {
-    // Reset game with new word when language changes
-    if (targetWord) {
-      resetGame();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
-
-  const getScrabblePoints = () => {
-    return language === 'es' ? SCRABBLE_POINTS_ES : SCRABBLE_POINTS_EN;
-  };
-
-  const tokenizeWord = (word: string): string[] => {
-    if (language === 'es') {
-      return tokenizeSpanishWord(word);
-    }
-    return word.split('');
-  };
-
-  const calculateScore = (guess: string, boardRow: number, startCol: number = 0): number => {
+  const calculateScore = (guess: string, row: number, col = 0): number => {
     if (!guess) return 0;
-
-    let score = 0;
-    let wordMultiplier = 1;
+    let score = 0, wordMult = 1;
     const tokens = tokenizeWord(guess);
-    const multipliers = getMultipliers(tokens.length, boardRow, startCol);
-    const points = getScrabblePoints();
-
-    tokens.forEach((token, colIndex) => {
-      let letterScore = points[token] || 0;
-      const multiplier = multipliers[colIndex];
-
-      if (multiplier === 'DLS') {
-        letterScore *= 2;
-      } else if (multiplier === 'TLS') {
-        letterScore *= 3;
-      } else if (multiplier === 'DWS') {
-        wordMultiplier *= 2;
-      } else if (multiplier === 'TWS') {
-        wordMultiplier *= 3;
-      }
-
-      score += letterScore;
+    const mults = getMultipliers(tokens.length, row, col);
+    const pts = getScrabblePoints();
+    tokens.forEach((tok, i) => {
+      let v = pts[tok] || 0;
+      const m = mults[i];
+      if (m === 'DLS') v *= 2;
+      else if (m === 'TLS') v *= 3;
+      else if (m === 'DWS') wordMult *= 2;
+      else if (m === 'TWS') wordMult *= 3;
+      score += v;
     });
+    return score * wordMult;
+  };
 
-    return score * wordMultiplier;
+  const getLetterState = (rowIndex: number, colIndex: number): LetterState => {
+    const tokens = guessTokens[rowIndex];
+    if (!tokens || tokens.length === 0 || rowIndex > currentRow) return 'empty';
+    const token = tokens[colIndex];
+    if (!token) return 'empty';
+    if (targetTokens[colIndex] === token) return 'correct';
+    const countInTarget = targetTokens.filter(t => t === token).length;
+    if (countInTarget === 0) return 'absent';
+    let correctCount = 0;
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i] === token && targetTokens[i] === token) correctCount++;
+    }
+    let presentBefore = 0;
+    for (let i = 0; i < colIndex; i++) {
+      if (tokens[i] === token && targetTokens[i] !== token) presentBefore++;
+    }
+    return correctCount + presentBefore < countInTarget ? 'present' : 'absent';
+  };
+
+  const getKeyboardLetterState = (letter: string): LetterState => {
+    if (language === 'es' && (letter === 'W' || letter === 'K')) {
+      for (let r = 0; r < currentRow; r++) {
+        const tokens = guessTokens[r];
+        if (!tokens) continue;
+        for (let c = 0; c < tokens.length; c++) {
+          if (tokens[c] === letter) return getLetterState(r, c);
+        }
+      }
+      return 'absent';
+    }
+    let best: LetterState = 'empty';
+    for (let r = 0; r < currentRow; r++) {
+      const tokens = guessTokens[r];
+      if (!tokens) continue;
+      for (let c = 0; c < tokens.length; c++) {
+        if (tokens[c] !== letter) continue;
+        const st = getLetterState(r, c);
+        if (st === 'correct') return 'correct';
+        if (st === 'present') best = 'present';
+        else if (st === 'absent' && best === 'empty') best = 'absent';
+      }
+    }
+    return best;
+  };
+
+  // ── Input handlers ─────────────────────────────────────────────────
+  const handleKey = (ch: string) => {
+    if (gameOver) return;
+    const newGuess = currentGuessRef.current + ch;
+    if (language === 'es') {
+      const tokens = tokenizeSpanishWord(newGuess);
+      if (tokens.length <= wordLength) {
+        setCurrentGuess(newGuess);
+        setCurrentGuessTokens(tokens);
+      }
+    } else {
+      if (newGuess.length <= wordLength) {
+        setCurrentGuess(newGuess);
+        setCurrentGuessTokens(newGuess.split(''));
+      }
+    }
+  };
+
+  const handleBackspace = () => {
+    if (currentGuess.length === 0) return;
+    if (language === 'es' && currentGuessTokens.length > 0) {
+      const last = currentGuessTokens[currentGuessTokens.length - 1];
+      setCurrentGuess(prev => prev.slice(0, -last.length));
+      setCurrentGuessTokens(prev => prev.slice(0, -1));
+    } else {
+      setCurrentGuess(prev => prev.slice(0, -1));
+      setCurrentGuessTokens(prev => prev.slice(0, -1));
+    }
   };
 
   const handleSubmit = async () => {
     if (currentGuessTokens.length !== wordLength) return;
-
-    // Validate word
     try {
       const response = await fetch(`/api/validate?word=${encodeURIComponent(currentGuess)}&language=${language}`);
       const data = await response.json();
-
       if (!data.valid) {
-        setErrorMessage(t.wordNotInDictionary);
+        setErrorMessage(tr.wordNotInDictionary);
         setShakeRow(currentRow);
-        setTimeout(() => {
-          setErrorMessage('');
-          setShakeRow(null);
-        }, 600);
+        setTimeout(() => { setErrorMessage(''); setShakeRow(null); }, 600);
         return;
       }
-    } catch (error) {
-      console.error('Validation error:', error);
-      setErrorMessage(t.validationFailed);
+    } catch {
+      setErrorMessage(tr.validationFailed);
       setShakeRow(currentRow);
-      setTimeout(() => {
-        setErrorMessage('');
-        setShakeRow(null);
-      }, 600);
+      setTimeout(() => { setErrorMessage(''); setShakeRow(null); }, 600);
       return;
     }
-
     setErrorMessage('');
-
     const newGuesses = [...guesses];
     newGuesses[currentRow] = currentGuess;
     setGuesses(newGuesses);
-
     const newGuessTokensList = [...guessTokens];
     newGuessTokensList[currentRow] = currentGuessTokens;
     setGuessTokens(newGuessTokensList);
-
     const score = calculateScore(currentGuess, boardRow, startCol);
     const newScores = [...guessScores];
     newScores[currentRow] = score;
     setGuessScores(newScores);
-
+    setScoreFlash(true);
+    setTimeout(() => setScoreFlash(false), 600);
     if (currentGuess === targetWord) {
       setAnimatingRow(currentRow);
-      // Calculate attempt multiplier: 3x for first try, 2.5x for second, etc.
       const attemptNumber = currentRow + 1;
-      const multiplier = 3.5 - (attemptNumber * 0.5);
+      const multiplier = 3.5 - attemptNumber * 0.5;
       let finalScoreValue = Math.round(score * multiplier);
-
-      // Add 50 point bonus for words 7+ letters long
-      if (wordLength >= 7) {
-        finalScoreValue += 50;
-      }
-
+      if (wordLength >= 7) finalScoreValue += 50;
       setAttemptMultiplier(multiplier);
       setFinalScore(finalScoreValue);
-
-      // First move to next row to trigger the green state
       setCurrentRow(currentRow + 1);
       setTimeout(() => {
         setWon(true);
@@ -607,107 +692,37 @@ export default function Home() {
         setShowModal(true);
       }, 1500);
     } else if (currentRow === MAX_ATTEMPTS - 1) {
-      setTimeout(() => {
-        setGameOver(true);
-        setShowModal(true);
-      }, 500);
+      setTimeout(() => { setGameOver(true); setShowModal(true); }, 500);
     } else {
       setCurrentRow(currentRow + 1);
     }
-
     setCurrentGuess('');
     setCurrentGuessTokens([]);
   };
 
-  const handleBackspace = () => {
-    if (currentGuess.length === 0) return;
-
-    // For Spanish, remove the last token (which might be 2 characters)
-    if (language === 'es' && currentGuessTokens.length > 0) {
-      const lastToken = currentGuessTokens[currentGuessTokens.length - 1];
-      setCurrentGuess(prev => prev.slice(0, -lastToken.length));
-      setCurrentGuessTokens(prev => prev.slice(0, -1));
-    } else {
-      setCurrentGuess(prev => prev.slice(0, -1));
-      setCurrentGuessTokens(prev => prev.slice(0, -1));
-    }
-  };
-
-  const getLetterState = (rowIndex: number, colIndex: number): LetterState => {
-    const tokens = guessTokens[rowIndex];
-    if (!tokens || tokens.length === 0 || rowIndex > currentRow) return 'empty';
-
-    const token = tokens[colIndex];
-    if (!token) return 'empty';
-
-    // First check if it's in the correct position
-    if (targetTokens[colIndex] === token) {
-      return 'correct';
-    }
-
-    // Count how many times this token appears in the target
-    const tokenCountInTarget = targetTokens.filter(t => t === token).length;
-    if (tokenCountInTarget === 0) {
-      return 'absent';
-    }
-
-    // Count how many times this token is in correct positions in the guess (greens)
-    let correctCount = 0;
-    for (let i = 0; i < tokens.length; i++) {
-      if (tokens[i] === token && targetTokens[i] === token) {
-        correctCount++;
-      }
-    }
-
-    // Count how many times this token appears as present (yellow) before this position
-    let presentBeforeCount = 0;
-    for (let i = 0; i < colIndex; i++) {
-      if (tokens[i] === token && targetTokens[i] !== token) {
-        presentBeforeCount++;
-      }
-    }
-
-    // If we still have available slots for this token (haven't used up all occurrences)
-    if (correctCount + presentBeforeCount < tokenCountInTarget) {
-      return 'present';
-    }
-
-    return 'absent';
-  };
-
   const resetGame = async () => {
+    if (typeof window !== 'undefined') localStorage.removeItem('anagramle-game-state');
     try {
-      // Clear saved game state
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('anagramle-game-state');
-      }
-
       const response = await fetch(`/api/word?language=${language}`);
       const data = await response.json();
       const newWord = decrypt(data.data, data.key);
       const tokens = language === 'es' ? tokenizeSpanishWord(newWord) : newWord.split('');
-
       setTargetWord(newWord);
       setTargetTokens(tokens);
       setWordLength(data.length);
       setBoardRow(data.boardRow);
       setStartCol(data.startCol);
-
-      // Generate hint positions - max 7 tokens to guess
       const hints = new Set<number>();
       if (tokens.length > 7) {
         const numHints = tokens.length - 7;
-        const availablePositions = Array.from({ length: tokens.length }, (_, i) => i);
-
-        // Randomly select hint positions
+        const available = Array.from({ length: tokens.length }, (_, i) => i);
         for (let i = 0; i < numHints; i++) {
-          const randomIndex = Math.floor(Math.random() * availablePositions.length);
-          hints.add(availablePositions[randomIndex]);
-          availablePositions.splice(randomIndex, 1);
+          const idx = Math.floor(Math.random() * available.length);
+          hints.add(available[idx]);
+          available.splice(idx, 1);
         }
       }
       setHintPositions(hints);
-
       setGuesses(Array(MAX_ATTEMPTS).fill(''));
       setGuessTokens(Array.from({ length: MAX_ATTEMPTS }, () => []));
       setCurrentGuess('');
@@ -720,72 +735,92 @@ export default function Home() {
       setShowModal(false);
       setFinalScore(0);
       setAttemptMultiplier(1);
-
-      // Scroll back to top of game area
-      setTimeout(() => {
-        if (mainContainerRef.current) {
-          mainContainerRef.current.scrollTop = 0;
-        }
-      }, 100);
-    } catch (error) {
-      console.error('Failed to fetch word:', error);
+    } catch (err) {
+      console.error('Failed to fetch word:', err);
     }
   };
 
+  // ── Keyboard event listener ────────────────────────────────────────
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing || e.key === 'Process') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (showLanguageDropdown) setShowLanguageDropdown(false);
+      if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
+      else if (e.key === 'Backspace') { e.preventDefault(); handleBackspace(); }
+      else if (/^[a-zA-ZñÑ]$/.test(e.key)) { e.preventDefault(); handleKey(e.key.toUpperCase()); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentGuess, gameOver, currentRow, targetWord, wordLength, language, showLanguageDropdown]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showHelp) setShowHelp(false);
+        else if (showModal) { setShowModal(false); resetGame(); }
+      } else if (e.key === 'Enter' && showModal) {
+        setShowModal(false); resetGame();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHelp, showModal]);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (languageDropdownRef.current && !languageDropdownRef.current.contains(e.target as Node)) {
+        setShowLanguageDropdown(false);
+      }
+    };
+    if (showLanguageDropdown) {
+      document.addEventListener('mousedown', onClick);
+      return () => document.removeEventListener('mousedown', onClick);
+    }
+  }, [showLanguageDropdown]);
+
+  useEffect(() => {
+    if (targetWord) resetGame();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
+
+  // ── Derived values ─────────────────────────────────────────────────
+  const multipliers = wordLength ? getMultipliers(wordLength, boardRow, startCol) : [];
+  const pts = getScrabblePoints();
   const currentGuessScore = calculateScore(currentGuess, boardRow, startCol);
   const targetWordScore = calculateScore(targetWord, boardRow, startCol);
+  const hasUserInput = currentGuess.length > 0;
 
-  // Get keyboard letter states based on guesses
-  const getKeyboardLetterState = (letter: string): LetterState => {
-    // In Spanish, mark W and K as absent by default (uncommon letters)
-    if (language === 'es' && (letter === 'W' || letter === 'K')) {
-      // Check if they've been guessed - if so, use actual state
-      for (let rowIndex = 0; rowIndex < currentRow; rowIndex++) {
-        const tokens = guessTokens[rowIndex];
-        if (!tokens || tokens.length === 0) continue;
+  // Best score among submitted rows
+  let bestScore = 0;
+  for (let r = 0; r < currentRow; r++) {
+    bestScore = Math.max(bestScore, guessScores[r]);
+  }
 
-        for (let colIndex = 0; colIndex < tokens.length; colIndex++) {
-          if (tokens[colIndex] === letter) {
-            const state = getLetterState(rowIndex, colIndex);
-            if (state === 'correct') return 'correct';
-            if (state === 'present') return 'present';
-            if (state === 'absent') return 'absent';
-          }
-        }
-      }
-      // Not guessed yet, mark as absent by default
-      return 'absent';
-    }
+  // Gap between tiles (tighter for longer words)
+  const gap = wordLength <= 7 ? 6 : wordLength <= 10 ? 5 : 3;
 
-    let bestState: LetterState = 'empty';
+  // Keyboard rows
+  const kbdRows = [
+    ['Q','W','E','R','T','Y','U','I','O','P'],
+    language === 'es'
+      ? ['A','S','D','F','G','H','J','K','L','Ñ']
+      : ['A','S','D','F','G','H','J','K','L'],
+    ['Z','X','C','V','B','N','M'],
+  ];
+  const digraphRow = language === 'es' ? ['CH', 'LL', 'RR'] : [];
 
-    // Check all completed guesses
-    for (let rowIndex = 0; rowIndex < currentRow; rowIndex++) {
-      const tokens = guessTokens[rowIndex];
-      if (!tokens || tokens.length === 0) continue;
+  const kbdStateBg = (state: LetterState) =>
+    state === 'correct' ? T.correct
+    : state === 'present' ? T.present
+    : state === 'absent' ? T.kbdAbsent
+    : T.kbdBg;
 
-      // Check if this letter appears in this guess
-      for (let colIndex = 0; colIndex < tokens.length; colIndex++) {
-        if (tokens[colIndex] === letter) {
-          const state = getLetterState(rowIndex, colIndex);
-          // Priority: correct > present > absent
-          if (state === 'correct') {
-            return 'correct'; // Can't get better than correct
-          } else if (state === 'present') {
-            bestState = 'present';
-          } else if (state === 'absent' && bestState === 'empty') {
-            bestState = 'absent';
-          }
-        }
-      }
-    }
-
-    return bestState;
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────
   return (
     <>
-      {/* Structured Data for SEO */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -796,527 +831,507 @@ export default function Home() {
                 "@type": "WebApplication",
                 "@id": "https://anagramle.vercel.app/#webapp",
                 "name": "Anagramle",
-                "alternateName": "Anagramle - Juego de palabras",
-                "description": "A word puzzle game combining Wordle gameplay with Scrabble scoring. Guess words in 6 tries and maximize your score with letter and word multipliers.",
+                "description": "A word puzzle game combining Wordle gameplay with Scrabble scoring.",
                 "url": "https://anagramle.vercel.app",
                 "applicationCategory": "Game",
-                "genre": ["Word Game", "Puzzle Game", "Educational Game"],
                 "operatingSystem": "Any",
-                "browserRequirements": "Requires JavaScript. Requires HTML5.",
-                "softwareVersion": "1.0",
-                "inLanguage": ["en-US", "en-GB", "es-ES", "es-MX"],
-                "availableLanguage": [
-                  {
-                    "@type": "Language",
-                    "name": "English",
-                    "alternateName": "en"
-                  },
-                  {
-                    "@type": "Language",
-                    "name": "Español",
-                    "alternateName": "es"
-                  }
-                ],
-                "offers": {
-                  "@type": "Offer",
-                  "price": "0",
-                  "priceCurrency": "USD",
-                  "availability": "https://schema.org/InStock"
-                },
-                "featureList": [
-                  "Wordle-style word guessing gameplay",
-                  "Scrabble point scoring system",
-                  "Letter and word multipliers",
-                  "Daily word challenges",
-                  "Multi-language support (English US, English World, Spanish)",
-                  "Variable word lengths (2-15 letters)",
-                  "Real dictionary validation (TWL06, SOWPODS, FISE)"
-                ]
+                "inLanguage": ["en-US", "es-ES"],
+                "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
               },
-              {
-                "@type": "VideoGame",
-                "@id": "https://anagramle.vercel.app/#game",
-                "name": "Anagramle",
-                "alternateName": ["Anagramle - Wordle meets Scrabble", "Anagramle - Juego de palabras"],
-                "description": "Anagramle is a free online word puzzle game that combines the best of Wordle and Scrabble. Guess the word in 6 tries using color-coded feedback, while scoring points with Scrabble letter values and board multipliers.",
-                "url": "https://anagramle.vercel.app",
-                "image": "https://anagramle.vercel.app/og-image.svg",
-                "playMode": "SinglePlayer",
-                "gamePlatform": ["https://schema.org/WebBrowser", "https://schema.org/MobileWebBrowser"],
-                "genre": ["Word Game", "Puzzle Game", "Educational Game", "Brain Game"],
-                "numberOfPlayers": {
-                  "@type": "QuantitativeValue",
-                  "value": 1
-                },
-                "inLanguage": ["en", "es"],
-                "publisher": {
-                  "@type": "Organization",
-                  "name": "Anagramle"
-                },
-                "creator": {
-                  "@type": "Organization",
-                  "name": "Anagramle"
-                },
-                "offers": {
-                  "@type": "Offer",
-                  "price": "0",
-                  "priceCurrency": "USD",
-                  "availability": "https://schema.org/InStock",
-                  "category": "Free to Play"
-                },
-                "aggregateRating": {
-                  "@type": "AggregateRating",
-                  "ratingValue": "4.8",
-                  "ratingCount": "1247",
-                  "bestRating": "5",
-                  "worstRating": "1"
-                },
-                "gameItem": [
-                  {
-                    "@type": "Thing",
-                    "name": "Word Letters",
-                    "description": "Letters with Scrabble point values"
-                  },
-                  {
-                    "@type": "Thing",
-                    "name": "Multipliers",
-                    "description": "Double/Triple Letter and Word Score multipliers"
-                  }
-                ],
-                "keywords": "wordle, scrabble, word game, puzzle game, free word game, online word game, wordle alternative, scrabble online, brain game, vocabulary game, NASPA Word List, TWL06, Collins Scrabble Words, SOWPODS, CSW, juego de palabras, wordle español, scrabble español, DRAE, RAE, FISE"
-              },
-              {
-                "@type": "WebPage",
-                "@id": "https://anagramle.vercel.app/#webpage",
-                "url": "https://anagramle.vercel.app",
-                "name": "Anagramle - Juego de palabras | Wordle meets Scrabble",
-                "description": "Play Anagramle, the ultimate word puzzle game combining Wordle's gameplay with Scrabble scoring. Guess words, earn points with multipliers, and master the daily word challenge. Free to play!",
-                "isPartOf": {
-                  "@type": "WebSite",
-                  "@id": "https://anagramle.vercel.app/#website"
-                },
-                "about": {
-                  "@id": "https://anagramle.vercel.app/#game"
-                },
-                "primaryImageOfPage": {
-                  "@type": "ImageObject",
-                  "url": "https://anagramle.vercel.app/og-image.svg",
-                  "width": 1200,
-                  "height": 630
-                }
-              },
-              {
-                "@type": "WebSite",
-                "@id": "https://anagramle.vercel.app/#website",
-                "url": "https://anagramle.vercel.app",
-                "name": "Anagramle",
-                "description": "Free online word puzzle game combining Wordle and Scrabble",
-                "inLanguage": ["en", "es"],
-                "potentialAction": {
-                  "@type": "PlayAction",
-                  "target": "https://anagramle.vercel.app"
-                }
-              }
-            ]
+            ],
           })
         }}
       />
-      <div className="flex flex-col h-screen w-full">
-        <header className="w-full text-center border-b border-[#3a3a3c] py-3 px-2 relative z-30 flex-shrink-0">
-        <div ref={languageDropdownRef} className="absolute left-4 top-1/2 -translate-y-1/2 z-30">
-          <button
-            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-            className="px-2 py-1 rounded border-2 border-white/60 bg-[#2a2a2a] text-white font-bold text-base hover:bg-white/10 transition-colors cursor-pointer min-w-[60px] flex items-center justify-center gap-1"
-          >
-            <span>{language === 'en' ? '🇺🇸' : language === 'en-world' ? '🇬🇧' : '🇪🇸'}</span>
-            <span className="text-[10px]">{showLanguageDropdown ? '▲' : '▼'}</span>
-          </button>
-          {showLanguageDropdown && (
-            <div className="absolute top-full left-0 mt-1 w-full bg-[#2a2a2a] border-2 border-white/60 rounded overflow-hidden z-50">
-              <button
-                onClick={() => { setLanguage('en'); setShowLanguageDropdown(false); }}
-                className={`w-full px-2 py-2 text-xl text-center hover:bg-white/10 transition-colors ${language === 'en' ? 'bg-white/20' : ''}`}
-              >
-                🇺🇸
-              </button>
-              <button
-                onClick={() => { setLanguage('en-world'); setShowLanguageDropdown(false); }}
-                className={`w-full px-2 py-2 text-xl text-center hover:bg-white/10 transition-colors ${language === 'en-world' ? 'bg-white/20' : ''}`}
-              >
-                🇬🇧
-              </button>
-              <button
-                onClick={() => { setLanguage('es'); setShowLanguageDropdown(false); }}
-                className={`w-full px-2 py-2 text-xl text-center hover:bg-white/10 transition-colors ${language === 'es' ? 'bg-white/20' : ''}`}
-              >
-                🇪🇸
-              </button>
+
+      <div style={{
+        width: '100%', maxWidth: 480, margin: '0 auto',
+        height: '100svh',
+        background: T.bg, color: T.fg,
+        display: 'flex', flexDirection: 'column',
+        fontFamily: 'var(--font-geist-sans), Inter, system-ui, sans-serif',
+        position: 'relative', overflow: 'hidden',
+      }}>
+
+        {/* ── Header ────────────────────────────────────────────────── */}
+        <header style={{
+          flexShrink: 0,
+          padding: '16px 18px 8px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 12,
+        }}>
+          {/* Brand */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 6,
+              background: T.accent, color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+              fontSize: 18, lineHeight: 1, fontStyle: 'italic',
+              position: 'relative',
+              boxShadow: `0 1px 0 ${T.tileShadow}`,
+              flexShrink: 0,
+            }}>
+              a
+              <span style={{
+                position: 'absolute', right: 3, bottom: 2,
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: 7, fontWeight: 600, opacity: 0.85,
+              }}>1</span>
             </div>
-          )}
-        </div>
-        <div className="flex items-center justify-center gap-3">
-          <Image src="/logo.svg" alt="Anagramle" width={48} height={48} className="w-10 h-10 sm:w-12 sm:h-12" />
-          <h1 className="text-xl sm:text-2xl font-bold tracking-wide">{t.title}</h1>
-        </div>
-        <button
-          onClick={() => setShowHelp(true)}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full border-2 border-white/60 flex items-center justify-center font-bold text-sm text-white/60 hover:bg-white/10 transition-colors z-30"
-        >
-          ?
-        </button>
-      </header>
-
-      <main ref={mainContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center py-4 px-2">
-        <div className="flex gap-8 items-center mb-4">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm text-white/60 font-semibold">{t.target}</span>
-            <span className="text-3xl font-bold text-[#6aaa64]">{targetWordScore}</span>
+            <div style={{
+              fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+              fontSize: 22, lineHeight: 1, fontStyle: 'italic',
+              letterSpacing: -0.3,
+            }}>anagramle</div>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm text-white/60 font-semibold">{t.guess}</span>
-            <span className="text-3xl font-bold text-[#b59f3b]">
-              {!gameOver && currentGuess.length > 0 ? currentGuessScore : '–'}
-            </span>
+
+          {/* Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Language */}
+            <div ref={languageDropdownRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                style={{
+                  height: 28, padding: '0 10px',
+                  background: T.chipBg, color: T.fg,
+                  border: 'none', borderRadius: 999,
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  cursor: 'pointer',
+                  boxShadow: `0 1px 0 ${T.tileShadow}`,
+                  fontFamily: 'var(--font-geist-sans), sans-serif',
+                  fontSize: 12, fontWeight: 600,
+                }}
+              >
+                <span>{language === 'es' ? '🇪🇸' : language === 'en-world' ? '🇬🇧' : '🇺🇸'}</span>
+                <span style={{ fontSize: 8, color: T.fgSoft }}>{showLanguageDropdown ? '▲' : '▼'}</span>
+              </button>
+              {showLanguageDropdown && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                  background: T.bgAlt,
+                  border: `1px solid ${T.tileBorder}`,
+                  borderRadius: 12, overflow: 'hidden',
+                  zIndex: 50,
+                  boxShadow: `0 8px 24px ${T.tileShadow}`,
+                }}>
+                  {(['en', 'en-world', 'es'] as const).map(lang => (
+                    <button key={lang} onClick={() => { setLanguage(lang); setShowLanguageDropdown(false); }} style={{
+                      display: 'block', width: '100%',
+                      padding: '10px 16px',
+                      background: language === lang ? T.chipBg : 'transparent',
+                      color: T.fg, border: 'none',
+                      cursor: 'pointer', fontSize: 18, textAlign: 'center',
+                    }}>
+                      {lang === 'en' ? '🇺🇸' : lang === 'en-world' ? '🇬🇧' : '🇪🇸'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Help */}
+            <button
+              onClick={() => setShowHelp(true)}
+              style={{
+                width: 28, height: 28, padding: 0,
+                background: T.chipBg, color: T.fgSoft,
+                border: 'none', borderRadius: 999,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-instrument-serif), serif',
+                fontSize: 16, fontStyle: 'italic',
+                boxShadow: `0 1px 0 ${T.tileShadow}`,
+              }}
+            >?</button>
           </div>
+        </header>
+
+        {/* ── Score row ──────────────────────────────────────────────── */}
+        <section style={{
+          flexShrink: 0,
+          padding: '8px 18px 10px',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14,
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+              fontSize: 10, letterSpacing: 1.5, color: T.fgSoft,
+              textTransform: 'uppercase', marginBottom: 2,
+            }}>{tr.thisGuess}</div>
+            <div className={scoreFlash ? 'score-flash' : ''} style={{
+              fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+              fontSize: 36, lineHeight: 1,
+              color: hasUserInput ? T.fg : T.fgSoft,
+              display: 'flex', alignItems: 'baseline', gap: 6,
+              transformOrigin: 'left bottom',
+            }}>
+              {hasUserInput ? currentGuessScore : '—'}
+              {bestScore > 0 && (
+                <span style={{
+                  fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+                  fontSize: 11, color: T.fgSoft, fontStyle: 'normal',
+                }}>{tr.best} {bestScore}</span>
+              )}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{
+              fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+              fontSize: 10, letterSpacing: 1.5, color: T.fgSoft,
+              textTransform: 'uppercase', marginBottom: 2,
+            }}>{tr.target}</div>
+            <div style={{
+              fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+              fontSize: 28, lineHeight: 1,
+              color: T.correct, fontStyle: 'italic',
+            }}>{targetWordScore || '—'}</div>
+          </div>
+        </section>
+
+        {/* ── Attempt dots ────────────────────────────────────────────── */}
+        <div style={{
+          flexShrink: 0,
+          padding: '0 18px 10px',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <div style={{ display: 'flex', gap: 5 }}>
+            {Array.from({ length: MAX_ATTEMPTS }).map((_, i) => {
+              const used = i < currentRow;
+              const isNext = i === currentRow && !gameOver;
+              return (
+                <span key={i} style={{
+                  width: isNext ? 24 : 8, height: 4, borderRadius: 4,
+                  background: used ? T.accent : isNext ? T.fg : T.tileBorder,
+                  opacity: used ? 0.6 : 1,
+                  transition: 'width 240ms ease, background 240ms ease',
+                  display: 'block',
+                }} />
+              );
+            })}
+          </div>
+          <span style={{
+            marginLeft: 'auto',
+            fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+            fontSize: 10, color: T.fgSoft, letterSpacing: 1,
+            textTransform: 'uppercase',
+          }}>
+            {gameOver
+              ? (won ? tr.solvedLabel : tr.finishedLabel)
+              : `${MAX_ATTEMPTS - currentRow} ${tr.leftLabel}`}
+          </span>
         </div>
 
-        <div className="w-full mb-6 overflow-x-auto overflow-y-visible relative">
+        {/* ── Tile grid ───────────────────────────────────────────────── */}
+        <div style={{ flexShrink: 0, padding: '0 18px', position: 'relative' }}>
           {errorMessage && (
-            <div
-              className="absolute left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-[#3a3a3c] border border-white/30 text-white/90 rounded font-semibold text-sm shadow-lg"
-              style={{ top: `${(currentRow + 0.25) * (100 / 6)}%` }}
-            >
+            <div style={{
+              position: 'absolute', top: -32, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 20, padding: '6px 14px',
+              background: T.bgAlt,
+              border: `1px solid ${T.tileBorder}`,
+              color: T.fg,
+              borderRadius: 8, fontSize: 13, fontWeight: 600,
+              whiteSpace: 'nowrap',
+              boxShadow: `0 4px 16px ${T.tileShadow}`,
+            }}>
               {errorMessage}
             </div>
           )}
-          <div className="grid grid-rows-6 gap-[4px] sm:gap-[5px] min-w-min mx-auto w-fit px-2 py-1">
-            {guesses.map((guess, rowIndex) => (
-              <div key={rowIndex} className={`flex gap-[4px] sm:gap-[5px] ${shakeRow === rowIndex ? 'animate-shake' : ''}`}>
-                {Array.from({ length: wordLength }).map((_, colIndex) => {
-                  // When game is over, use guessTokens for all rows including current
-                  const tokens = (rowIndex === currentRow && !gameOver) ? currentGuessTokens : guessTokens[rowIndex];
-                  const token = tokens[colIndex] || '';
-                  // Show colors on current row if game is over
-                  const state = (rowIndex === currentRow && !gameOver) ? 'empty' : getLetterState(rowIndex, colIndex);
+          <div ref={gridContainerRef} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap }}>
+            {Array.from({ length: MAX_ATTEMPTS }).map((_, rowIndex) => {
+              const isCurrent = rowIndex === currentRow && !gameOver;
+              const isSubmitted = rowIndex < currentRow || (rowIndex === currentRow && gameOver && guessTokens[rowIndex]?.length > 0);
+              const rowTokens = isCurrent ? currentGuessTokens : (guessTokens[rowIndex] || []);
 
-                  const multipliers = getMultipliers(wordLength, boardRow, startCol);
-                  const multiplier = multipliers[colIndex];
-                  const isHint = hintPositions.has(colIndex) && !token;
-                  const hintToken = isHint ? targetTokens[colIndex] : '';
-                  const isCurrentTile = rowIndex === currentRow && !gameOver && colIndex === currentGuessTokens.length;
+              // Cursor: first unfilled position in current row
+              const cursorCol = isCurrent
+                ? (() => {
+                    let typed = 0;
+                    for (let ci = 0; ci < wordLength; ci++) {
+                      if (typed >= currentGuessTokens.length) return ci;
+                      typed++;
+                    }
+                    return -1;
+                  })()
+                : -1;
 
+              return (
+                <div key={rowIndex} style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${wordLength || 6}, minmax(0, 1fr))`,
+                  gap,
+                  animation: shakeRow === rowIndex ? 'shake 400ms ease' : undefined,
+                }}>
+                  {Array.from({ length: wordLength }).map((_, colIndex) => {
+                    let ch = '';
+                    let state: LetterState = 'empty';
+                    let isHint = false;
+
+                    if (isCurrent) {
+                      ch = rowTokens[colIndex] || '';
+                      if (!ch && hintPositions.has(colIndex)) {
+                        ch = targetTokens[colIndex] || '';
+                        isHint = true;
+                      }
+                    } else if (isSubmitted) {
+                      ch = rowTokens[colIndex] || '';
+                      state = getLetterState(rowIndex, colIndex);
+                    }
+
+                    const isAnimating = animatingRow === rowIndex;
+
+                    return (
+                      <Tile
+                        key={colIndex}
+                        ch={ch}
+                        state={isSubmitted ? state : 'empty'}
+                        multiplier={multipliers[colIndex]}
+                        isCurrent={colIndex === cursorCol}
+                        isHint={isHint}
+                        size={tileSize}
+                        scrabblePoints={pts}
+                      />
+                    );
+                    void isAnimating;
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Flex spacer ─────────────────────────────────────────────── */}
+        <div style={{ flex: 1, minHeight: 8 }} />
+
+        {/* ── Keyboard ────────────────────────────────────────────────── */}
+        <section style={{ flexShrink: 0, padding: '8px 10px 32px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+            {kbdRows.map((row, ri) => (
+              <div key={ri} style={{
+                display: 'flex', gap: 5,
+                padding: ri === 1 ? '0 16px' : 0,
+              }}>
+                {ri === 2 && (
+                  <button
+                    onClick={handleSubmit}
+                    style={{
+                      flex: 1.6, height: 44, minWidth: 0, padding: 0,
+                      borderRadius: 10, border: 'none',
+                      background: T.kbdBg, color: T.fg,
+                      fontWeight: 600, fontSize: 12,
+                      textTransform: 'uppercase', letterSpacing: 0.8,
+                      cursor: 'pointer',
+                      boxShadow: `0 1px 0 ${T.tileShadow}`,
+                    }}
+                  >{tr.enter}</button>
+                )}
+                {row.map(L => {
+                  const st = getKeyboardLetterState(L);
+                  const bg = kbdStateBg(st);
+                  const fg = st !== 'empty' ? '#fff' : T.fg;
                   return (
-                    <Tile
-                      key={colIndex}
-                      letter={token}
-                      state={state}
-                      showScore={true}
-                      multiplier={multiplier}
-                      isHint={isHint}
-                      hintLetter={hintToken}
-                      isAnimating={animatingRow === rowIndex}
-                      tileRef={isCurrentTile ? currentTileRef : undefined}
-                      animationDelay={animatingRow === rowIndex ? colIndex * 100 : 0}
-                      multiplierLabels={t.multipliers}
-                      scrabblePoints={getScrabblePoints()}
-                    />
+                    <button key={L} onClick={() => handleKey(L)} style={{
+                      flex: 1, height: 44, minWidth: 0, padding: 0,
+                      borderRadius: 10, border: 'none',
+                      background: bg, color: fg,
+                      fontWeight: 600,
+                      fontSize: L.length > 1 ? 14 : 17,
+                      position: 'relative',
+                      cursor: 'pointer',
+                      boxShadow: `0 1px 0 ${T.tileShadow}`,
+                      transition: 'transform 80ms ease, background 200ms ease',
+                    }}>
+                      <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {L}
+                        {pts[L] !== undefined && (
+                          <span style={{
+                            position: 'absolute', bottom: -11, right: -9,
+                            fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+                            fontSize: 9, fontWeight: 500, opacity: 0.65,
+                          }}>{pts[L]}</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+                {ri === 2 && (
+                  <button onClick={handleBackspace} style={{
+                    flex: 1.6, height: 44, minWidth: 0, padding: 0,
+                    borderRadius: 10, border: 'none',
+                    background: T.kbdBg, color: T.fg,
+                    fontWeight: 600, fontSize: 12,
+                    cursor: 'pointer',
+                    boxShadow: `0 1px 0 ${T.tileShadow}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width="22" height="16" viewBox="0 0 22 16" fill="none">
+                      <path d="M7 1.5h12.5a1.5 1.5 0 011.5 1.5v10a1.5 1.5 0 01-1.5 1.5H7L1 8 7 1.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                      <path d="M10 5.5l5 5M15 5.5l-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {/* Digraph row for Spanish */}
+            {digraphRow.length > 0 && (
+              <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
+                {digraphRow.map(tok => {
+                  const st = getKeyboardLetterState(tok);
+                  const bg = kbdStateBg(st);
+                  const fg = st !== 'empty' ? '#fff' : T.fg;
+                  return (
+                    <button key={tok} onClick={() => handleKey(tok)} style={{
+                      width: 72, height: 44, padding: 0, flexShrink: 0,
+                      borderRadius: 10, border: 'none',
+                      background: bg, color: fg,
+                      fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+                      fontWeight: 600, fontSize: 14,
+                      cursor: 'pointer',
+                      boxShadow: `0 1px 0 ${T.tileShadow}`,
+                      transition: 'transform 80ms ease, background 200ms ease',
+                    }}>{tok}</button>
                   );
                 })}
               </div>
-            ))}
+            )}
           </div>
-        </div>
+        </section>
 
-        {/* On-screen Keyboard */}
-        <div className="w-full max-w-2xl mx-auto px-2 pb-4 mt-4">
-          <div className="flex flex-col gap-2">
-            {/* First Row - QWERTYUIOP */}
-            <div className="flex gap-1 justify-center">
-              {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(letter => {
-                const keyState = getKeyboardLetterState(letter);
-                const bgColor = keyState === 'correct' ? 'bg-[#538d4e]' :
-                                keyState === 'present' ? 'bg-[#b59f3b]' :
-                                keyState === 'absent' ? 'bg-[#3a3a3c]' :
-                                'bg-[#818384]';
-                const hoverColor = keyState === 'empty' ? 'hover:bg-[#6a6b6c]' : '';
-
-                return (
-                  <button
-                    key={letter}
-                    onClick={() => {
-                      if (gameOver) return;
-                      const newChar = letter;
-                      const newGuess = currentGuess + newChar;
-                      if (language === 'es') {
-                        const tokens = tokenizeSpanishWord(newGuess);
-                        if (tokens.length <= wordLength) {
-                          setCurrentGuess(newGuess);
-                          setCurrentGuessTokens(tokens);
-                        }
-                      } else {
-                        if (newGuess.length <= wordLength) {
-                          setCurrentGuess(newGuess);
-                          setCurrentGuessTokens(newGuess.split(''));
-                        }
-                      }
-                    }}
-                    className={`flex-1 min-w-0 h-14 ${bgColor} ${hoverColor} text-white font-bold rounded text-lg relative flex items-center justify-center`}
-                  >
-                    {letter}
-                    <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
-                      {getScrabblePoints()[letter]}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Second Row - ASDFGHJKL + Ñ for Spanish */}
-            <div className="flex gap-1 justify-center px-4">
-              {(language === 'es' ? ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Ñ'] : ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L']).map(letter => {
-                const keyState = getKeyboardLetterState(letter);
-                const bgColor = keyState === 'correct' ? 'bg-[#538d4e]' :
-                                keyState === 'present' ? 'bg-[#b59f3b]' :
-                                keyState === 'absent' ? 'bg-[#3a3a3c]' :
-                                'bg-[#818384]';
-                const hoverColor = keyState === 'empty' ? 'hover:bg-[#6a6b6c]' : '';
-
-                return (
-                  <button
-                    key={letter}
-                    onClick={() => {
-                      if (gameOver) return;
-                      const newChar = letter;
-                      const newGuess = currentGuess + newChar;
-                      if (language === 'es') {
-                        const tokens = tokenizeSpanishWord(newGuess);
-                        if (tokens.length <= wordLength) {
-                          setCurrentGuess(newGuess);
-                          setCurrentGuessTokens(tokens);
-                        }
-                      } else {
-                        if (newGuess.length <= wordLength) {
-                          setCurrentGuess(newGuess);
-                          setCurrentGuessTokens(newGuess.split(''));
-                        }
-                      }
-                    }}
-                    className={`flex-1 min-w-0 h-14 ${bgColor} ${hoverColor} text-white font-bold rounded text-lg relative flex items-center justify-center`}
-                  >
-                    {letter}
-                    <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
-                      {getScrabblePoints()[letter]}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Third Row - ENTER + Z-M + DELETE */}
-            <div className="flex gap-1 justify-center">
-              <button
-                onClick={handleSubmit}
-                className="flex-[1.5] h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-sm"
-              >
-                {t.enter}
-              </button>
-              {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(letter => {
-                const keyState = getKeyboardLetterState(letter);
-                const bgColor = keyState === 'correct' ? 'bg-[#538d4e]' :
-                                keyState === 'present' ? 'bg-[#b59f3b]' :
-                                keyState === 'absent' ? 'bg-[#3a3a3c]' :
-                                'bg-[#818384]';
-                const hoverColor = keyState === 'empty' ? 'hover:bg-[#6a6b6c]' : '';
-
-                return (
-                  <button
-                    key={letter}
-                    onClick={() => {
-                      if (gameOver) return;
-                      const newChar = letter;
-                      const newGuess = currentGuess + newChar;
-                      if (language === 'es') {
-                        const tokens = tokenizeSpanishWord(newGuess);
-                        if (tokens.length <= wordLength) {
-                          setCurrentGuess(newGuess);
-                          setCurrentGuessTokens(tokens);
-                        }
-                      } else {
-                        if (newGuess.length <= wordLength) {
-                          setCurrentGuess(newGuess);
-                          setCurrentGuessTokens(newGuess.split(''));
-                        }
-                      }
-                    }}
-                    className={`flex-1 min-w-0 h-14 ${bgColor} ${hoverColor} text-white font-bold rounded text-lg relative flex items-center justify-center`}
-                  >
-                    {letter}
-                    <span className="absolute bottom-0.5 right-1 text-[10px] opacity-75">
-                      {getScrabblePoints()[letter]}
-                    </span>
-                  </button>
-                );
-              })}
-              <button
-                onClick={handleBackspace}
-                className="flex-[1.5] h-14 bg-[#818384] hover:bg-[#6a6b6c] text-white font-bold rounded text-sm"
-              >
-                {t.delete}
-              </button>
-            </div>
-          </div>
-        </div>
-
+        {/* ── End overlay ─────────────────────────────────────────────── */}
         {showModal && (
-          <div
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4"
-            onClick={() => {
-              setShowModal(false);
-              resetGame();
-            }}
-          >
-            <div
-              className="bg-[#2a2a2a] border-2 border-[#4a4a4a] rounded-lg p-8 max-w-md w-full text-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-4xl font-bold mb-4">
-                {won ? t.victory : t.gameOver}
-              </h2>
-              <p className="text-xl mb-2">
-                {won ? t.youGuessed : t.theWordWas}
-              </p>
-              <p className="text-3xl font-bold text-[#6aaa64] mb-4">
-                {targetWord}
-              </p>
-              {won ? (
-                <div className="mb-6 space-y-2">
-                  <p className="text-base text-white/80">
-                    {t.baseScore} <span className="font-bold text-white">{guessScores.slice(0, currentRow + 1).reverse().find(s => s > 0) || 0}</span>
-                  </p>
-                  <p className="text-base text-white/80">
-                    {t.attemptBonus} <span className="font-bold text-[#b59f3b]">×{attemptMultiplier}</span>
-                  </p>
-                  {wordLength >= 7 && (
-                    <p className="text-base text-white/80">
-                      {t.longWordBonus} <span className="font-bold text-[#6aaa64]">+50</span>
-                    </p>
-                  )}
-                  <div className="border-t border-white/20 pt-2 mt-2">
-                    <p className="text-xl">
-                      {t.finalScore} <span className="font-bold text-2xl text-[#6aaa64]">{finalScore}</span>
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-lg mb-6">
-                  {t.targetScore} {t.score} <span className="font-bold text-[#6aaa64]">{targetWordScore}</span>
-                </p>
-              )}
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  resetGame();
-                }}
-                className="bg-[#538d4e] hover:bg-[#6aaa64] px-8 py-3 rounded-lg font-bold text-white transition-colors text-lg"
-              >
-                {t.playAgain}
-              </button>
-            </div>
-          </div>
+          <EndOverlay
+            won={won}
+            targetWord={targetWord}
+            finalScore={won ? finalScore : 0}
+            targetScore={targetWordScore}
+            attempts={currentRow}
+            onClose={() => setShowModal(false)}
+            onPlayAgain={() => { setShowModal(false); resetGame(); }}
+            t={tr}
+          />
         )}
 
+        {/* ── Help sheet ──────────────────────────────────────────────── */}
         {showHelp && (
-          <div
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4"
-            onClick={() => setShowHelp(false)}
-          >
-            <div
-              className="bg-[#2a2a2a] border-2 border-[#4a4a4a] rounded-lg p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => setShowHelp(false)}
-                className="sticky top-0 float-right text-white/60 hover:text-white text-2xl w-8 h-8 flex items-center justify-center flex-shrink-0 bg-[#2a2a2a] z-10 ml-4"
-              >
-                ×
-              </button>
-              <h2 className="text-3xl font-bold mb-6">{t.howToPlay}</h2>
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 100,
+            background: T.overlay,
+            display: 'flex', alignItems: 'flex-end',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+          }} onClick={() => setShowHelp(false)}>
+            <div onClick={e => e.stopPropagation()} style={{
+              width: '100%',
+              background: T.bgAlt,
+              borderTopLeftRadius: 28, borderTopRightRadius: 28,
+              padding: '20px 24px 44px',
+              animation: 'sheetUp 360ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+              boxShadow: `0 -8px 30px ${T.tileShadow}`,
+              maxHeight: '88vh',
+              overflowY: 'auto',
+            }}>
+              {/* Pull handle */}
+              <div style={{
+                width: 36, height: 4, borderRadius: 4,
+                background: T.tileBorder,
+                margin: '0 auto 20px',
+              }} />
 
-              <div className="text-left mb-8 space-y-4">
-                <p className="text-white/90">
-                  {t.instructions}
-                </p>
-                <div className="space-y-2">
-                  <p className="font-semibold text-white">{t.colorGuide}</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#538d4e] border-2 border-[#538d4e] rounded flex items-center justify-center text-white font-bold">A</div>
-                    <span className="text-white/80">{t.correctPos}</span>
+              <h2 style={{
+                fontFamily: 'var(--font-instrument-serif), serif',
+                fontSize: 32, lineHeight: 1, fontStyle: 'italic', letterSpacing: -0.5,
+                margin: '0 0 6px', color: T.fg,
+              }}>{tr.howToPlay}</h2>
+              <p style={{ color: T.fgSoft, fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>
+                {tr.quickGuide}
+              </p>
+
+              {/* Color guide */}
+              <div style={{
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase',
+                color: T.fgSoft, marginBottom: 10,
+              }}>{tr.colorGuide}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                {([
+                  { bg: T.correct, ch: 'A', label: tr.correctPos },
+                  { bg: T.present, ch: 'B', label: tr.wrongPos },
+                  { bg: T.absent,  ch: 'C', label: tr.notInWord },
+                ] as { bg: string; ch: string; label: string }[]).map(({ bg, ch, label }) => (
+                  <div key={ch} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 7,
+                      background: bg, color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: 'var(--font-instrument-serif), serif',
+                      fontSize: 22, flexShrink: 0,
+                      boxShadow: `0 2px 4px ${T.tileShadow}`,
+                    }}>{ch}</div>
+                    <span style={{ color: T.fgSoft, fontSize: 14, lineHeight: 1.4 }}>{label}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#b59f3b] border-2 border-[#b59f3b] rounded flex items-center justify-center text-white font-bold">B</div>
-                    <span className="text-white/80">{t.wrongPos}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#2a2a2a] border-2 border-[#4a4a4a] rounded flex items-center justify-center text-white font-bold">C</div>
-                    <span className="text-white/80">{t.notInWord}</span>
-                  </div>
-                </div>
-                <p className="text-white/90">
-                  <strong>{t.scoringLabel}</strong> {t.scoringInfo}
-                </p>
+                ))}
               </div>
 
-              <h3 className="text-2xl font-bold mb-4">{t.boardMultipliers}</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 bg-[#d64545] border-2 border-[#d64545] rounded flex items-center justify-center text-white font-bold text-sm">
-                    {t.multipliers.TWS}
+              {/* Board multipliers */}
+              <div style={{
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase',
+                color: T.fgSoft, marginBottom: 10,
+              }}>{tr.boardMultipliers}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 24 }}>
+                {([
+                  { color: T.multTWS, label: tr.multipliers.TWS, name: tr.tripleWordScore },
+                  { color: T.multDWS, label: tr.multipliers.DWS, name: tr.doubleWordScore },
+                  { color: T.multTLS, label: tr.multipliers.TLS, name: tr.tripleLetterScore },
+                  { color: T.multDLS, label: tr.multipliers.DLS, name: tr.doubleLetterScore },
+                ] as { color: string; label: string; name: string }[]).map(({ color, label, name }) => (
+                  <div key={label} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: T.kbdBg, borderRadius: 10, padding: '10px 12px',
+                  }}>
+                    <span style={{
+                      padding: '3px 8px', borderRadius: 999,
+                      background: color, color: '#fff',
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      fontWeight: 600, fontSize: 13, flexShrink: 0,
+                    }}>{label}</span>
+                    <span style={{ color: T.fgSoft, fontSize: 12, lineHeight: 1.3 }}>{name}</span>
                   </div>
-                  <span className="text-white/80 text-sm text-center">{t.tripleWordScore}</span>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 bg-[#e07575] border-2 border-[#e07575] rounded flex items-center justify-center text-white font-bold text-sm">
-                    {t.multipliers.DWS}
-                  </div>
-                  <span className="text-white/80 text-sm text-center">{t.doubleWordScore}</span>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 bg-[#3d8ac7] border-2 border-[#3d8ac7] rounded flex items-center justify-center text-white font-bold text-sm">
-                    {t.multipliers.TLS}
-                  </div>
-                  <span className="text-white/80 text-sm text-center">{t.tripleLetterScore}</span>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 bg-[#5fa3d4] border-2 border-[#5fa3d4] rounded flex items-center justify-center text-white font-bold text-sm">
-                    {t.multipliers.DLS}
-                  </div>
-                  <span className="text-white/80 text-sm text-center">{t.doubleLetterScore}</span>
-                </div>
+                ))}
               </div>
 
-              <h3 className="text-2xl font-bold mb-4">{t.letterValues}</h3>
-              <div className="grid grid-cols-5 sm:grid-cols-7 gap-3">
-                {Object.entries(getScrabblePoints())
+              {/* Letter values */}
+              <div style={{
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase',
+                color: T.fgSoft, marginBottom: 10,
+              }}>{tr.letterValues}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+                {Object.entries(pts)
                   .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
                   .map(([letter, points]) => (
-                    <div
-                      key={letter}
-                      className={`w-full aspect-square bg-[#4a4a4a] border-2 border-[#5a5a5a] rounded flex items-center justify-center text-white font-bold ${
-                        letter.length > 1 ? 'text-lg' : 'text-2xl'
-                      } uppercase relative`}
-                    >
+                    <div key={letter} style={{
+                      aspectRatio: '1/1',
+                      background: T.kbdBg, borderRadius: 7,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: 'var(--font-instrument-serif), serif',
+                      fontSize: letter.length > 1 ? 12 : 18,
+                      color: T.fg, position: 'relative',
+                    }}>
                       {letter}
-                      <span className="absolute bottom-1 right-1 text-xs font-bold opacity-90">
-                        {points}
-                      </span>
+                      <span style={{
+                        position: 'absolute', bottom: 3, right: 4,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: 8, fontWeight: 600, opacity: 0.6, color: T.fgSoft,
+                      }}>{points}</span>
                     </div>
                   ))}
               </div>
             </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
     </>
   );
 }
