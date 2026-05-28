@@ -103,7 +103,7 @@ export const TRANSLATIONS = {
     step2: 'Presiona Enter para enviar — las fichas se voltean y muestran el feedback de colores',
     step3: 'Usa los colores para descubrir la palabra objetivo en hasta 6 intentos',
     step4: 'Intenta igualar o superar la puntuación Objetivo que aparece arriba',
-    hintLetters: 'Letras de pista',
+    hintLetters: 'Pistas',
     hintLettersDesc: 'En Scrabble tienes 7 fichas en mano. Para palabras de más de 7 letras, las posiciones extra vienen pre-rellenadas con letras tenues en cursiva (letras reales de la palabra objetivo), para que siempre adivines exactamente 7.',
     daily: 'Diario',
     practice: 'Práctica',
