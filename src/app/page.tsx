@@ -588,9 +588,31 @@ export default function Home() {
                 fontSize: 32, lineHeight: 1, fontStyle: 'italic', letterSpacing: -0.5,
                 margin: '0 0 6px', color: T.fg,
               }}>{tr.howToPlay}</h2>
-              <p style={{ color: T.fgSoft, fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>
+              <p style={{ color: T.fgSoft, fontSize: 14, lineHeight: 1.6, margin: '0 0 16px' }}>
                 {tr.quickGuide}
               </p>
+
+              {/* Steps */}
+              <div style={{
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase',
+                color: T.fgSoft, marginBottom: 10,
+              }}>{tr.steps}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                {([tr.step1, tr.step2, tr.step3, tr.step4] as string[]).map((step, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{
+                      flexShrink: 0,
+                      width: 22, height: 22, borderRadius: 999,
+                      background: T.accent, color: T.bg,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      fontSize: 11, fontWeight: 700,
+                    }}>{i + 1}</span>
+                    <span style={{ color: T.fgSoft, fontSize: 14, lineHeight: 1.5, paddingTop: 3 }}>{step}</span>
+                  </div>
+                ))}
+              </div>
 
               {/* Color guide */}
               <div style={{
@@ -616,6 +638,27 @@ export default function Home() {
                     <span style={{ color: T.fgSoft, fontSize: 14, lineHeight: 1.4 }}>{label}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* Hint letters */}
+              <div style={{
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase',
+                color: T.fgSoft, marginBottom: 10,
+              }}>{tr.hintLetters}</div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24,
+                background: T.kbdBg, borderRadius: 12, padding: '12px 14px',
+              }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 7, flexShrink: 0,
+                  background: T.tileEmpty, color: T.fg, opacity: 0.45,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'var(--font-instrument-serif), serif',
+                  fontSize: 22, fontStyle: 'italic',
+                  boxShadow: `inset 0 0 0 1px ${T.tileBorder}`,
+                }}>A</div>
+                <span style={{ color: T.fgSoft, fontSize: 13, lineHeight: 1.5 }}>{tr.hintLettersDesc}</span>
               </div>
 
               {/* Board multipliers */}
